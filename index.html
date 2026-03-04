@@ -1,0 +1,1959 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TS Pain Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --text: #152033;
+      --muted: #44556c;
+      --border: #d4dce8;
+      --accent: #0d8b6f;
+      --accent-strong: #0b6f59;
+      --accent-soft: #d4f3ea;
+      --danger: #cf3f4f;
+      --danger-soft: #ffe5e9;
+      --warning: #d78310;
+      --warning-soft: #fff1dd;
+      --shadow: 0 8px 24px rgba(9, 30, 66, 0.08);
+      --radius: 14px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f141c;
+        --panel: #17202b;
+        --text: #eef3fa;
+        --muted: #b8c6d7;
+        --border: #2f3d4f;
+        --accent: #36bd99;
+        --accent-strong: #25a484;
+        --accent-soft: #113a32;
+        --danger: #ff8998;
+        --danger-soft: #4a222c;
+        --warning: #ffc266;
+        --warning-soft: #47331b;
+        --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 90% -20%, rgba(13,139,111,0.15), transparent 42%), var(--bg);
+      color: var(--text);
+      font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 14px 14px 48px;
+    }
+
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(8px);
+      padding-top: 6px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 4px 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: 0.02em;
+    }
+
+    .clock {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 1rem;
+      min-height: 44px;
+      line-height: 1.2;
+      white-space: nowrap;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+    }
+
+    .subtle, .muted {
+      color: var(--muted);
+      font-size: 1rem;
+      margin: 4px 0 0;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    label {
+      font-size: 1rem;
+      color: var(--muted);
+    }
+
+    input, select, textarea, button {
+      font: inherit;
+      font-size: 1rem;
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="number"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 10px 11px;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    .inline {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1.3;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    .btn.primary:hover { background: var(--accent-strong); }
+    .btn.warn { background: var(--warning-soft); border-color: var(--warning); color: var(--warning); }
+    .btn.danger { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .symptom-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--panel) 92%, var(--accent-soft));
+    }
+
+    .symptom-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 10px;
+    }
+
+    .score-badge {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent);
+      min-width: 2.4em;
+      text-align: center;
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      min-height: 44px;
+    }
+
+    .toggle-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .toggle-btn {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 9px 12px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 1rem;
+      line-height: 1.2;
+      flex: 1 1 150px;
+      max-width: 100%;
+    }
+
+    .toggle-btn.on {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .status {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1rem;
+      margin-top: 6px;
+    }
+
+    .status.editing { color: var(--warning); }
+
+    .record-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .record-row {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 12px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .record-row:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--panel) 88%, var(--accent-soft));
+    }
+
+    .row-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      font-size: 1rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 320px;
+      margin-top: 10px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .stat-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+      font-size: 1rem;
+    }
+
+    .warning-box {
+      border: 1px solid var(--warning);
+      background: var(--warning-soft);
+      color: var(--warning);
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .hidden { display: none !important; }
+
+    @media (max-width: 768px) {
+      .app {
+        padding: 10px 10px 40px;
+      }
+
+      .title-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .grid3,
+      .grid2,
+      .stats-grid,
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      .chart-wrap {
+        height: 260px;
+      }
+
+      .toggle-btn {
+        flex: 1 1 45%;
+      }
+
+      .inline .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="title-row">
+        <h1>TS Pain Tracker</h1>
+        <div id="clock" class="clock"></div>
+      </div>
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="input">入力</button>
+        <button class="tab-btn" data-tab="list">一覧</button>
+        <button class="tab-btn" data-tab="analysis">グラフ/分析</button>
+        <button class="tab-btn" data-tab="abab">ABAB</button>
+        <button class="tab-btn" data-tab="doctor">医師共有</button>
+        <button class="tab-btn" data-tab="backup">バックアップ</button>
+      </nav>
+    </header>
+
+    <section id="tab-input" class="panel active">
+      <div class="card">
+        <h2 class="section-title">1分入力</h2>
+        <p class="subtle">スライダー＋トグル中心で最短記録。行クリックで編集できます。</p>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">日時</h3>
+        <div class="grid3">
+          <div class="field">
+            <label for="recordDate">日付</label>
+            <input id="recordDate" type="date" required />
+          </div>
+          <div class="field">
+            <label for="recordTime">時刻</label>
+            <input id="recordTime" type="time" required />
+          </div>
+          <div class="field">
+            <label>操作</label>
+            <button class="btn" id="btnSetNow" type="button">今にする</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">症状スコア (0-10)</h3>
+        <div id="symptomContainer" class="grid2"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">生活因子（任意）</h3>
+        <div class="grid2">
+          <div class="field">
+            <label for="sleepHours">睡眠時間 (0-24)</label>
+            <input id="sleepHours" type="number" min="0" max="24" step="0.5" placeholder="例: 6.5" />
+          </div>
+          <div class="field">
+            <label for="stress">ストレス (0-10)</label>
+            <input id="stress" type="number" min="0" max="10" step="1" placeholder="例: 7" />
+          </div>
+          <div class="field">
+            <label for="workHours">作業時間 (0-24)</label>
+            <input id="workHours" type="number" min="0" max="24" step="0.5" placeholder="例: 8" />
+          </div>
+          <div class="field">
+            <label for="note">メモ (最大200文字)</label>
+            <textarea id="note" maxlength="200" placeholder="例: 会議で長時間発話"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div id="toggleGroupContainer"></div>
+
+      <div class="card">
+        <div class="field">
+          <label for="interventionNote">介入メモ (最大200文字)</label>
+          <textarea id="interventionNote" maxlength="200" placeholder="例: 温かい飲み物で30分後に喉が軽くなった"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="editStatus" class="status">新規入力モード</div>
+        <div class="actions">
+          <button id="btnSave" class="btn primary" type="button">保存（新規）</button>
+          <button id="btnUpdate" class="btn warn" type="button" disabled>更新（編集）</button>
+          <button id="btnCancelEdit" class="btn" type="button" disabled>編集解除</button>
+          <button id="btnDelete" class="btn danger" type="button" disabled>削除</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-list" class="panel">
+      <div class="card">
+        <h2 class="section-title">一覧（新しい順）</h2>
+        <div class="grid3">
+          <div class="field">
+            <label for="listPeriod">期間</label>
+            <select id="listPeriod">
+              <option value="7">7日</option>
+              <option value="30">30日</option>
+              <option value="all">全期間</option>
+              <option value="custom">任意</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="listSearch">メモ検索</label>
+            <input id="listSearch" type="text" placeholder="キーワード検索" />
+          </div>
+          <div class="field">
+            <label>件数</label>
+            <div id="listCount" class="muted">0件</div>
+          </div>
+        </div>
+        <div id="listCustomRange" class="grid2 hidden" style="margin-top:8px;">
+          <div class="field">
+            <label for="listStart">開始日</label>
+            <input id="listStart" type="date" />
+          </div>
+          <div class="field">
+            <label for="listEnd">終了日</label>
+            <input id="listEnd" type="date" />
+          </div>
+        </div>
+      </div>
+      <div id="recordList" class="record-list"></div>
+    </section>
+
+    <section id="tab-analysis" class="panel">
+      <div class="card">
+        <h2 class="section-title">折れ線グラフ</h2>
+        <div class="grid3">
+          <div class="field">
+            <label for="chartPeriod">期間</label>
+            <select id="chartPeriod">
+              <option value="7">7日</option>
+              <option value="30">30日</option>
+              <option value="all">全期間</option>
+              <option value="custom">任意</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>データ件数</label>
+            <div id="chartCount" class="muted">0件</div>
+          </div>
+        </div>
+        <div id="chartCustomRange" class="grid2 hidden" style="margin-top:8px;">
+          <div class="field">
+            <label for="chartStart">開始日</label>
+            <input id="chartStart" type="date" />
+          </div>
+          <div class="field">
+            <label for="chartEnd">終了日</label>
+            <input id="chartEnd" type="date" />
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="symptomChart"></canvas>
+        </div>
+        <p id="chartNotice" class="muted"></p>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">分析カード</h3>
+        <div id="analysisStats" class="stats-grid"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">悪化日トップ3</h3>
+        <div id="worsenTop" class="muted"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">トリガーあり/なし平均比較</h3>
+        <div class="grid2">
+          <div class="field">
+            <label for="analysisTrigger">トリガー</label>
+            <select id="analysisTrigger"></select>
+          </div>
+          <div class="field">
+            <label for="analysisSymptom">比較症状</label>
+            <select id="analysisSymptom"></select>
+          </div>
+        </div>
+        <p id="triggerCompareResult" class="muted" style="margin-top:8px;">データを選択すると比較を表示します。</p>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">AI用週次まとめ生成</h3>
+        <div class="grid2">
+          <div class="field">
+            <label for="aiStart">開始日</label>
+            <input id="aiStart" type="date" />
+          </div>
+          <div class="field">
+            <label for="aiEnd">終了日</label>
+            <input id="aiEnd" type="date" />
+          </div>
+        </div>
+        <div class="inline" style="margin-top:8px;">
+          <button id="btnGenerateAiSummary" class="btn primary" type="button">まとめ生成</button>
+          <button id="btnCopyAiSummary" class="btn" type="button">コピー</button>
+        </div>
+        <textarea id="aiSummary" readonly style="margin-top:8px; min-height: 180px;"></textarea>
+      </div>
+    </section>
+
+    <section id="tab-abab" class="panel">
+      <div class="card">
+        <h2 class="section-title">ABAB実験計画</h2>
+        <form id="planForm">
+          <div class="grid2">
+            <div class="field">
+              <label for="planName">計画名</label>
+              <input id="planName" type="text" maxlength="80" required placeholder="例: 首痛と温タオル" />
+            </div>
+            <div class="field">
+              <label for="planTargetSymptom">対象症状</label>
+              <select id="planTargetSymptom"></select>
+            </div>
+            <div class="field">
+              <label for="planInterventionKey">介入キー</label>
+              <select id="planInterventionKey"></select>
+            </div>
+            <div class="field">
+              <label for="planStartDate">開始日</label>
+              <input id="planStartDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="planPhaseDays">各フェーズ日数</label>
+              <input id="planPhaseDays" type="number" min="1" step="1" value="7" required />
+            </div>
+            <div class="field">
+              <label for="planNotes">メモ</label>
+              <textarea id="planNotes" maxlength="200" placeholder="例: 朝のみ実施"></textarea>
+            </div>
+          </div>
+          <p class="subtle">シーケンスは固定: A → B → A → B</p>
+          <button class="btn primary" type="submit">計画作成</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">計画一覧</h3>
+        <div id="planList" class="record-list"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">有効計画の進捗</h3>
+        <div id="activePlanStatus" class="muted">有効な計画がありません。</div>
+      </div>
+    </section>
+
+    <section id="tab-doctor" class="panel">
+      <div class="card">
+        <h2 class="section-title">医師共有</h2>
+        <div class="grid2">
+          <div class="field">
+            <label for="docStart">開始日</label>
+            <input id="docStart" type="date" />
+          </div>
+          <div class="field">
+            <label for="docEnd">終了日</label>
+            <input id="docEnd" type="date" />
+          </div>
+        </div>
+        <button id="btnGenerateDoctor" class="btn primary" type="button" style="margin-top:8px;">生成</button>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">3行版</h3>
+        <textarea id="doctorThreeLine" readonly style="min-height: 110px;"></textarea>
+        <button id="btnCopyDoctorThree" class="btn" type="button" style="margin-top:8px;">コピー</button>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">詳細版</h3>
+        <textarea id="doctorDetail" readonly style="min-height: 280px;"></textarea>
+        <button id="btnCopyDoctorDetail" class="btn" type="button" style="margin-top:8px;">コピー</button>
+      </div>
+    </section>
+
+    <section id="tab-backup" class="panel">
+      <div class="card">
+        <h2 class="section-title">バックアップ</h2>
+        <div class="inline">
+          <button id="btnExportCsv" class="btn primary" type="button">CSVエクスポート</button>
+          <button id="btnExportJson" class="btn primary" type="button">JSONエクスポート</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">JSONインポート</h3>
+        <div class="grid2">
+          <div class="field">
+            <label for="importFile">JSONファイル</label>
+            <input id="importFile" type="file" accept=".json,application/json" />
+          </div>
+          <div class="field">
+            <label for="importMode">取り込み方法</label>
+            <select id="importMode">
+              <option value="append">追加</option>
+              <option value="replace">置換</option>
+            </select>
+          </div>
+        </div>
+        <button id="btnImportJson" class="btn" type="button" style="margin-top:8px;">JSONインポート実行</button>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">全消去</h3>
+        <p class="subtle">記録・実験計画を完全に削除します（二重確認あり）。</p>
+        <button id="btnClearAll" class="btn danger" type="button">全データ消去</button>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">ローカル起動方法</h3>
+        <p class="subtle">この <span class="mono">index.html</span> はダブルクリックでも動作します。</p>
+        <p class="subtle">簡易サーバーで起動する場合: <span class="mono">python3 -m http.server 8008</span></p>
+        <p class="subtle">ブラウザで <span class="mono">http://localhost:8008</span> を開いてください。</p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEYS = {
+        records: "ts_pain_records",
+        plans: "ts_experiment_plans"
+      };
+
+      const SYMPTOMS = [
+        { key: "shoulder", label: "肩" },
+        { key: "neck", label: "首" },
+        { key: "throat", label: "喉" },
+        { key: "lowerBack", label: "腰" }
+      ];
+
+      const TRIGGER_GROUPS = [
+        {
+          title: "喉トリガー",
+          items: [
+            { key: "coldDrink", label: "冷たい飲み物" },
+            { key: "dryAir", label: "乾燥空気" },
+            { key: "lotsOfTalking", label: "話しすぎ" },
+            { key: "coughPhlegm", label: "咳/痰" },
+            { key: "nasalPostDrip", label: "後鼻漏" }
+          ]
+        },
+        {
+          title: "首トリガー",
+          items: [
+            { key: "downwardPhone", label: "下向きスマホ" },
+            { key: "pcWork", label: "PC作業" },
+            { key: "pillowMismatch", label: "枕ミスマッチ" }
+          ]
+        },
+        {
+          title: "肩トリガー",
+          items: [
+            { key: "armUpWork", label: "腕上げ作業" },
+            { key: "heavyLifting", label: "重い物運搬" },
+            { key: "longSamePosture", label: "同姿勢長時間" }
+          ]
+        },
+        {
+          title: "腰トリガー",
+          items: [
+            { key: "longSitting", label: "長時間座位" },
+            { key: "bendingForward", label: "前屈み" }
+          ]
+        }
+      ];
+
+      const INTERVENTION_GROUPS = [
+        {
+          title: "喉対策",
+          items: [
+            { key: "warmDrink", label: "温かい飲み物" },
+            { key: "throatCandy", label: "のど飴" },
+            { key: "humidifier", label: "加湿" },
+            { key: "voiceRest", label: "声を休める" }
+          ]
+        },
+        {
+          title: "首対策",
+          items: [
+            { key: "hotTowel", label: "温タオル" },
+            { key: "stretchNeck", label: "首ストレッチ" }
+          ]
+        },
+        {
+          title: "肩対策",
+          items: [
+            { key: "shoulderStretch", label: "肩ストレッチ" },
+            { key: "restShoulder", label: "肩を休める" }
+          ]
+        },
+        {
+          title: "腰対策",
+          items: [
+            { key: "backStretch", label: "腰ストレッチ" },
+            { key: "coreLightExercise", label: "軽い体幹運動" },
+            { key: "walk", label: "歩く" }
+          ]
+        }
+      ];
+
+      const SYMPTOM_LABEL = Object.fromEntries(SYMPTOMS.map(s => [s.key, s.label]));
+      const TRIGGER_LABEL = {};
+      TRIGGER_GROUPS.forEach(group => group.items.forEach(i => (TRIGGER_LABEL[i.key] = i.label)));
+      const INTERVENTION_LABEL = {};
+      INTERVENTION_GROUPS.forEach(group => group.items.forEach(i => (INTERVENTION_LABEL[i.key] = i.label)));
+
+      const TRIGGER_KEYS = Object.keys(TRIGGER_LABEL);
+      const INTERVENTION_KEYS = Object.keys(INTERVENTION_LABEL);
+
+      const INTERVENTIONS_BY_SYMPTOM = {
+        shoulder: ["shoulderStretch", "restShoulder"],
+        neck: ["hotTowel", "stretchNeck"],
+        throat: ["warmDrink", "throatCandy", "humidifier", "voiceRest"],
+        lowerBack: ["backStretch", "coreLightExercise", "walk"]
+      };
+
+      const CHART_COLORS = {
+        shoulder: "#2b90d9",
+        neck: "#e76f51",
+        throat: "#2a9d8f",
+        lowerBack: "#e9c46a"
+      };
+
+      let records = loadJSON(STORAGE_KEYS.records, []).map(normalizeRecord);
+      let plans = loadJSON(STORAGE_KEYS.plans, []).map(normalizePlan);
+      let editingRecordId = null;
+      let chart = null;
+      let analysisDataset = [];
+
+      init();
+
+      function init() {
+        enforceSingleActivePlan();
+        renderClock();
+        setInterval(renderClock, 1000);
+
+        renderSymptomSliders();
+        renderToggleGroups();
+        populateSelects();
+        bindEvents();
+        setInitialDates();
+        clearRecordForm(false);
+        savePlans();
+        renderAll();
+      }
+
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      function loadJSON(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return fallback;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function saveRecords() {
+        localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records));
+      }
+
+      function savePlans() {
+        localStorage.setItem(STORAGE_KEYS.plans, JSON.stringify(plans));
+      }
+
+      function createId(prefix) {
+        const rand = Math.random().toString(16).slice(2, 8);
+        return `${prefix}_${Date.now()}_${rand}`;
+      }
+
+      function clamp(n, min, max) {
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function parseNullableFloat(v, min, max) {
+        if (v === "" || v == null) return null;
+        const n = Number(v);
+        if (!Number.isFinite(n)) return null;
+        return clamp(n, min, max);
+      }
+
+      function parseNullableInt(v, min, max) {
+        if (v === "" || v == null) return null;
+        const n = Number(v);
+        if (!Number.isFinite(n)) return null;
+        return clamp(Math.round(n), min, max);
+      }
+
+      function formatDateInput(d) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function formatTimeInput(d) {
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        return `${hh}:${mm}`;
+      }
+
+      function todayStr() {
+        return formatDateInput(new Date());
+      }
+
+      function shiftDateStr(baseDateStr, days) {
+        const d = new Date(`${baseDateStr}T00:00:00`);
+        d.setDate(d.getDate() + days);
+        return formatDateInput(d);
+      }
+
+      function toDate(record) {
+        const t = record.time || "00:00";
+        return new Date(`${record.date}T${t}:00`);
+      }
+
+      function normalizeRecord(r = {}) {
+        const triggersDefault = Object.fromEntries(TRIGGER_KEYS.map(k => [k, false]));
+        const interventionsDefault = Object.fromEntries(INTERVENTION_KEYS.map(k => [k, false]));
+        const out = {
+          id: typeof r.id === "string" ? r.id : createId("rec"),
+          date: /^\d{4}-\d{2}-\d{2}$/.test(r.date || "") ? r.date : todayStr(),
+          time: /^\d{2}:\d{2}$/.test(r.time || "") ? r.time : "00:00",
+          shoulder: clamp(Number.isFinite(Number(r.shoulder)) ? Math.round(Number(r.shoulder)) : 0, 0, 10),
+          neck: clamp(Number.isFinite(Number(r.neck)) ? Math.round(Number(r.neck)) : 0, 0, 10),
+          throat: clamp(Number.isFinite(Number(r.throat)) ? Math.round(Number(r.throat)) : 0, 0, 10),
+          lowerBack: clamp(Number.isFinite(Number(r.lowerBack)) ? Math.round(Number(r.lowerBack)) : 0, 0, 10),
+          sleepHours: parseNullableFloat(r.sleepHours, 0, 24),
+          stress: parseNullableInt(r.stress, 0, 10),
+          workHours: parseNullableFloat(r.workHours, 0, 24),
+          note: typeof r.note === "string" ? r.note.slice(0, 200) : "",
+          triggers: { ...triggersDefault, ...(r.triggers || {}) },
+          interventions: { ...interventionsDefault, ...(r.interventions || {}) },
+          interventionNote: typeof r.interventionNote === "string" ? r.interventionNote.slice(0, 200) : ""
+        };
+        TRIGGER_KEYS.forEach(k => (out.triggers[k] = !!out.triggers[k]));
+        INTERVENTION_KEYS.forEach(k => (out.interventions[k] = !!out.interventions[k]));
+        return out;
+      }
+
+      function normalizePlan(p = {}) {
+        const targetSymptom = SYMPTOM_LABEL[p.targetSymptom] ? p.targetSymptom : "shoulder";
+        const interventionKey = INTERVENTION_LABEL[p.interventionKey] ? p.interventionKey : INTERVENTION_KEYS[0];
+        const sequence = Array.isArray(p.sequence) && p.sequence.length
+          ? p.sequence.filter(v => v === "A" || v === "B")
+          : ["A", "B", "A", "B"];
+        return {
+          id: typeof p.id === "string" ? p.id : createId("plan"),
+          name: typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 80) : "新規計画",
+          targetSymptom,
+          interventionKey,
+          startDate: /^\d{4}-\d{2}-\d{2}$/.test(p.startDate || "") ? p.startDate : todayStr(),
+          phaseDays: Math.max(1, Math.round(Number(p.phaseDays) || 7)),
+          sequence: sequence.length ? sequence : ["A", "B", "A", "B"],
+          notes: typeof p.notes === "string" ? p.notes.slice(0, 200) : "",
+          isActive: !!p.isActive
+        };
+      }
+
+      function enforceSingleActivePlan() {
+        const active = plans.filter(p => p.isActive);
+        if (active.length <= 1) return;
+        const keepId = active[0].id;
+        plans.forEach(p => (p.isActive = p.id === keepId));
+      }
+
+      function renderClock() {
+        const now = new Date();
+        const value = `${formatDateInput(now)} ${formatTimeInput(now)}`;
+        $("clock").textContent = `現在 ${value}`;
+      }
+
+      function renderSymptomSliders() {
+        const container = $("symptomContainer");
+        container.innerHTML = SYMPTOMS.map(s => `
+          <div class="symptom-item">
+            <div class="symptom-head">
+              <strong>${s.label}</strong>
+              <span id="score-${s.key}" class="score-badge">0</span>
+            </div>
+            <input class="sym-range" id="sym-${s.key}" data-key="${s.key}" type="range" min="0" max="10" step="1" value="0" />
+          </div>
+        `).join("");
+
+        document.querySelectorAll(".sym-range").forEach(el => {
+          el.addEventListener("input", () => {
+            const key = el.dataset.key;
+            $(`score-${key}`).textContent = el.value;
+          });
+        });
+      }
+
+      function renderToggleGroups() {
+        const wrap = $("toggleGroupContainer");
+        const sections = [];
+
+        TRIGGER_GROUPS.forEach(group => {
+          sections.push(`
+            <div class="card">
+              <h3 class="section-title">${group.title}</h3>
+              <div class="toggle-grid">
+                ${group.items.map(item => `
+                  <button type="button" class="toggle-btn" data-kind="triggers" data-key="${item.key}">${item.label}</button>
+                `).join("")}
+              </div>
+            </div>
+          `);
+        });
+
+        INTERVENTION_GROUPS.forEach(group => {
+          sections.push(`
+            <div class="card">
+              <h3 class="section-title">${group.title}</h3>
+              <div class="toggle-grid">
+                ${group.items.map(item => `
+                  <button type="button" class="toggle-btn" data-kind="interventions" data-key="${item.key}">${item.label}</button>
+                `).join("")}
+              </div>
+            </div>
+          `);
+        });
+
+        wrap.innerHTML = sections.join("");
+
+        wrap.querySelectorAll(".toggle-btn").forEach(btn => {
+          btn.addEventListener("click", () => btn.classList.toggle("on"));
+        });
+      }
+
+      function populateSelects() {
+        $("analysisTrigger").innerHTML = TRIGGER_KEYS
+          .map(k => `<option value="${k}">${TRIGGER_LABEL[k]}</option>`)
+          .join("");
+
+        $("analysisSymptom").innerHTML = SYMPTOMS
+          .map(s => `<option value="${s.key}">${s.label}</option>`)
+          .join("");
+
+        $("planTargetSymptom").innerHTML = SYMPTOMS
+          .map(s => `<option value="${s.key}">${s.label}</option>`)
+          .join("");
+
+        $("planInterventionKey").innerHTML = INTERVENTION_KEYS
+          .map(k => `<option value="${k}">${INTERVENTION_LABEL[k]}</option>`)
+          .join("");
+      }
+
+      function bindEvents() {
+        document.querySelectorAll(".tab-btn").forEach(btn => {
+          btn.addEventListener("click", () => setTab(btn.dataset.tab));
+        });
+
+        $("btnSetNow").addEventListener("click", setNowToInputs);
+
+        $("btnSave").addEventListener("click", onSaveRecord);
+        $("btnUpdate").addEventListener("click", onUpdateRecord);
+        $("btnCancelEdit").addEventListener("click", () => clearRecordForm(true));
+        $("btnDelete").addEventListener("click", onDeleteRecord);
+
+        $("listPeriod").addEventListener("change", () => {
+          toggleCustomRange("listPeriod", "listCustomRange");
+          renderList();
+        });
+        $("listStart").addEventListener("change", renderList);
+        $("listEnd").addEventListener("change", renderList);
+        $("listSearch").addEventListener("input", renderList);
+
+        $("chartPeriod").addEventListener("change", () => {
+          toggleCustomRange("chartPeriod", "chartCustomRange");
+          renderAnalysisTab();
+        });
+        $("chartStart").addEventListener("change", renderAnalysisTab);
+        $("chartEnd").addEventListener("change", renderAnalysisTab);
+
+        $("analysisTrigger").addEventListener("change", () => renderTriggerComparison(analysisDataset));
+        $("analysisSymptom").addEventListener("change", () => renderTriggerComparison(analysisDataset));
+
+        $("btnGenerateAiSummary").addEventListener("click", generateAiSummary);
+        $("btnCopyAiSummary").addEventListener("click", () => copyText($("aiSummary").value));
+
+        $("planForm").addEventListener("submit", onCreatePlan);
+
+        $("btnGenerateDoctor").addEventListener("click", generateDoctorShare);
+        $("btnCopyDoctorThree").addEventListener("click", () => copyText($("doctorThreeLine").value));
+        $("btnCopyDoctorDetail").addEventListener("click", () => copyText($("doctorDetail").value));
+
+        $("btnExportCsv").addEventListener("click", exportCSV);
+        $("btnExportJson").addEventListener("click", exportJSON);
+        $("btnImportJson").addEventListener("click", importJSON);
+        $("btnClearAll").addEventListener("click", clearAllData);
+      }
+
+      function setInitialDates() {
+        const t = todayStr();
+        const t7 = shiftDateStr(t, -6);
+        const t14 = shiftDateStr(t, -13);
+
+        $("listPeriod").value = "7";
+        $("chartPeriod").value = "7";
+
+        $("listStart").value = t7;
+        $("listEnd").value = t;
+        $("chartStart").value = t7;
+        $("chartEnd").value = t;
+
+        $("aiStart").value = t7;
+        $("aiEnd").value = t;
+
+        $("docStart").value = t14;
+        $("docEnd").value = t;
+
+        $("planStartDate").value = t;
+        setNowToInputs();
+      }
+
+      function setNowToInputs() {
+        const now = new Date();
+        $("recordDate").value = formatDateInput(now);
+        $("recordTime").value = formatTimeInput(now);
+      }
+
+      function setTab(tabName) {
+        document.querySelectorAll(".tab-btn").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.tab === tabName);
+        });
+        document.querySelectorAll(".panel").forEach(panel => {
+          panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+        });
+
+        if (tabName === "list") renderList();
+        if (tabName === "analysis") renderAnalysisTab();
+        if (tabName === "abab") {
+          renderPlanList();
+          renderActivePlan();
+        }
+        if (tabName === "doctor") generateDoctorShare();
+      }
+
+      function toggleCustomRange(periodId, wrapId) {
+        const show = $(periodId).value === "custom";
+        $(wrapId).classList.toggle("hidden", !show);
+      }
+
+      function collectToggle(kind, keys) {
+        const out = {};
+        keys.forEach(key => {
+          const btn = document.querySelector(`.toggle-btn[data-kind="${kind}"][data-key="${key}"]`);
+          out[key] = !!(btn && btn.classList.contains("on"));
+        });
+        return out;
+      }
+
+      function applyToggle(kind, keys, values = {}) {
+        keys.forEach(key => {
+          const btn = document.querySelector(`.toggle-btn[data-kind="${kind}"][data-key="${key}"]`);
+          if (btn) btn.classList.toggle("on", !!values[key]);
+        });
+      }
+
+      function collectRecordData(existingId = null) {
+        const date = $("recordDate").value;
+        const time = $("recordTime").value;
+        if (!date || !time) {
+          alert("日付と時刻を入力してください。");
+          return null;
+        }
+
+        return normalizeRecord({
+          id: existingId || createId("rec"),
+          date,
+          time,
+          shoulder: Number($("sym-shoulder").value),
+          neck: Number($("sym-neck").value),
+          throat: Number($("sym-throat").value),
+          lowerBack: Number($("sym-lowerBack").value),
+          sleepHours: parseNullableFloat($("sleepHours").value, 0, 24),
+          stress: parseNullableInt($("stress").value, 0, 10),
+          workHours: parseNullableFloat($("workHours").value, 0, 24),
+          note: ($("note").value || "").trim().slice(0, 200),
+          triggers: collectToggle("triggers", TRIGGER_KEYS),
+          interventions: collectToggle("interventions", INTERVENTION_KEYS),
+          interventionNote: ($("interventionNote").value || "").trim().slice(0, 200)
+        });
+      }
+
+      function clearRecordForm(resetDateTime) {
+        editingRecordId = null;
+        if (resetDateTime) setNowToInputs();
+
+        SYMPTOMS.forEach(s => {
+          $(`sym-${s.key}`).value = 0;
+          $(`score-${s.key}`).textContent = "0";
+        });
+
+        $("sleepHours").value = "";
+        $("stress").value = "";
+        $("workHours").value = "";
+        $("note").value = "";
+        $("interventionNote").value = "";
+
+        applyToggle("triggers", TRIGGER_KEYS, {});
+        applyToggle("interventions", INTERVENTION_KEYS, {});
+
+        $("btnUpdate").disabled = true;
+        $("btnDelete").disabled = true;
+        $("btnCancelEdit").disabled = true;
+        $("editStatus").textContent = "新規入力モード";
+        $("editStatus").classList.remove("editing");
+      }
+
+      function loadRecordIntoForm(record) {
+        editingRecordId = record.id;
+        $("recordDate").value = record.date;
+        $("recordTime").value = record.time;
+
+        SYMPTOMS.forEach(s => {
+          $(`sym-${s.key}`).value = record[s.key];
+          $(`score-${s.key}`).textContent = String(record[s.key]);
+        });
+
+        $("sleepHours").value = record.sleepHours ?? "";
+        $("stress").value = record.stress ?? "";
+        $("workHours").value = record.workHours ?? "";
+        $("note").value = record.note || "";
+        $("interventionNote").value = record.interventionNote || "";
+
+        applyToggle("triggers", TRIGGER_KEYS, record.triggers || {});
+        applyToggle("interventions", INTERVENTION_KEYS, record.interventions || {});
+
+        $("btnUpdate").disabled = false;
+        $("btnDelete").disabled = false;
+        $("btnCancelEdit").disabled = false;
+        $("editStatus").textContent = "編集中（更新または削除ができます）";
+        $("editStatus").classList.add("editing");
+      }
+
+      function onSaveRecord() {
+        const rec = collectRecordData(null);
+        if (!rec) return;
+        records.push(rec);
+        saveRecords();
+        clearRecordForm(true);
+        renderAll();
+      }
+
+      function onUpdateRecord() {
+        if (!editingRecordId) return;
+        const rec = collectRecordData(editingRecordId);
+        if (!rec) return;
+        const idx = records.findIndex(r => r.id === editingRecordId);
+        if (idx < 0) return;
+        records[idx] = rec;
+        saveRecords();
+        clearRecordForm(true);
+        renderAll();
+      }
+
+      function onDeleteRecord() {
+        if (!editingRecordId) return;
+        const ok = confirm("この記録を削除しますか？");
+        if (!ok) return;
+        records = records.filter(r => r.id !== editingRecordId);
+        saveRecords();
+        clearRecordForm(true);
+        renderAll();
+      }
+
+      function getRange(period, start, end) {
+        if (period === "all") return null;
+        const today = new Date(`${todayStr()}T00:00:00`);
+
+        if (period === "7" || period === "30") {
+          const days = Number(period);
+          const s = new Date(today);
+          s.setDate(s.getDate() - (days - 1));
+          const e = new Date(today);
+          e.setHours(23, 59, 59, 999);
+          return { start: s, end: e };
+        }
+
+        if (period === "custom") {
+          if (!start || !end) return null;
+          const s = new Date(`${start}T00:00:00`);
+          const e = new Date(`${end}T23:59:59.999`);
+          if (s > e) return null;
+          return { start: s, end: e };
+        }
+
+        return null;
+      }
+
+      function inRange(rec, range) {
+        if (!range) return true;
+        const d = toDate(rec);
+        return d >= range.start && d <= range.end;
+      }
+
+      function sortByNewest(data) {
+        return [...data].sort((a, b) => toDate(b) - toDate(a));
+      }
+
+      function sortByOldest(data) {
+        return [...data].sort((a, b) => toDate(a) - toDate(b));
+      }
+
+      function truncate(text, max = 40) {
+        if (!text) return "";
+        return text.length > max ? `${text.slice(0, max)}...` : text;
+      }
+
+      function renderList() {
+        const period = $("listPeriod").value;
+        const range = getRange(period, $("listStart").value, $("listEnd").value);
+        const keyword = ($("listSearch").value || "").trim().toLowerCase();
+
+        const filtered = sortByNewest(records.filter(r => {
+          if (!inRange(r, range)) return false;
+          if (!keyword) return true;
+          return (r.note || "").toLowerCase().includes(keyword) || (r.interventionNote || "").toLowerCase().includes(keyword);
+        }));
+
+        $("listCount").textContent = `${filtered.length}件`;
+        const box = $("recordList");
+
+        if (!filtered.length) {
+          box.innerHTML = `<div class="card muted">該当データがありません。</div>`;
+          return;
+        }
+
+        box.innerHTML = filtered.map(r => `
+          <button class="record-row" data-id="${r.id}" type="button">
+            <div class="row-head">
+              <strong>${r.date} ${r.time}</strong>
+              <span class="muted">タップで編集</span>
+            </div>
+            <div class="chips">
+              <span class="chip">肩 ${r.shoulder}</span>
+              <span class="chip">首 ${r.neck}</span>
+              <span class="chip">喉 ${r.throat}</span>
+              <span class="chip">腰 ${r.lowerBack}</span>
+            </div>
+            <div class="subtle">${truncate(r.note, 60)}</div>
+          </button>
+        `).join("");
+
+        box.querySelectorAll(".record-row").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const rec = records.find(r => r.id === btn.dataset.id);
+            if (!rec) return;
+            loadRecordIntoForm(rec);
+            setTab("input");
+          });
+        });
+      }
+
+      function computeStats(data, key) {
+        const vals = data.map(r => Number(r[key])).filter(v => Number.isFinite(v));
+        if (!vals.length) return { avg: 0, max: 0, min: 0 };
+        const sum = vals.reduce((a, b) => a + b, 0);
+        return {
+          avg: sum / vals.length,
+          max: Math.max(...vals),
+          min: Math.min(...vals)
+        };
+      }
+
+      function formatNum(n, digit = 1) {
+        return Number.isFinite(n) ? n.toFixed(digit) : "-";
+      }
+
+      function topWorsen(data, symptomKey = null, topN = 3) {
+        const scored = data.map(r => {
+          const scores = SYMPTOMS.map(s => ({ key: s.key, v: r[s.key] }));
+          const peak = scores.reduce((a, b) => (b.v > a.v ? b : a), { key: "shoulder", v: -1 });
+          const value = symptomKey ? r[symptomKey] : peak.v;
+          const key = symptomKey || peak.key;
+          return { record: r, value, key };
+        });
+        return scored.sort((a, b) => b.value - a.value || toDate(b.record) - toDate(a.record)).slice(0, topN);
+      }
+
+      function renderAnalysisTab() {
+        const period = $("chartPeriod").value;
+        const range = getRange(period, $("chartStart").value, $("chartEnd").value);
+        const data = sortByOldest(records.filter(r => inRange(r, range)));
+
+        $("chartCount").textContent = `${data.length}件`;
+        analysisDataset = data;
+        renderChart(data);
+        renderAnalysisCards(data);
+        renderTriggerComparison(data);
+      }
+
+      function renderChart(data) {
+        const notice = $("chartNotice");
+        notice.textContent = "";
+        if (chart) {
+          chart.destroy();
+          chart = null;
+        }
+
+        if (typeof Chart === "undefined") {
+          notice.textContent = "Chart.jsの読み込みに失敗しました。ネット接続を確認してください。";
+          return;
+        }
+
+        if (!data.length) {
+          notice.textContent = "表示できるデータがありません。";
+          return;
+        }
+
+        const labels = data.map(r => `${r.date.slice(5)} ${r.time}`);
+        const datasets = SYMPTOMS.map(s => ({
+          label: s.label,
+          data: data.map(r => r[s.key]),
+          borderColor: CHART_COLORS[s.key],
+          backgroundColor: CHART_COLORS[s.key],
+          tension: 0.25,
+          pointRadius: 3
+        }));
+
+        chart = new Chart($("symptomChart"), {
+          type: "line",
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            scales: {
+              y: { min: 0, max: 10, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+      }
+
+      function renderAnalysisCards(data) {
+        const statsEl = $("analysisStats");
+        if (!data.length) {
+          statsEl.innerHTML = `<div class="muted">データがありません。</div>`;
+          $("worsenTop").textContent = "データがありません。";
+          return;
+        }
+
+        statsEl.innerHTML = SYMPTOMS.map(s => {
+          const st = computeStats(data, s.key);
+          return `
+            <div class="stat-card">
+              <strong>${s.label}</strong><br>
+              平均 ${formatNum(st.avg)} / 最大 ${st.max} / 最小 ${st.min}
+            </div>
+          `;
+        }).join("");
+
+        const top = topWorsen(data, null, 3);
+        $("worsenTop").innerHTML = top.map((x, i) => {
+          const n = truncate(x.record.note || "", 24);
+          return `${i + 1}. ${x.record.date} ${x.record.time} ${SYMPTOM_LABEL[x.key]} ${x.value} ${n ? `| ${n}` : ""}`;
+        }).join("<br>");
+      }
+
+      function renderTriggerComparison(data) {
+        const triggerKey = $("analysisTrigger").value;
+        const symptomKey = $("analysisSymptom").value;
+        if (!data.length || !triggerKey || !symptomKey) {
+          $("triggerCompareResult").textContent = "データを選択すると比較を表示します。";
+          return;
+        }
+
+        const on = data.filter(r => r.triggers && r.triggers[triggerKey]).map(r => r[symptomKey]);
+        const off = data.filter(r => !(r.triggers && r.triggers[triggerKey])).map(r => r[symptomKey]);
+
+        const avg = arr => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+        const avgOn = avg(on);
+        const avgOff = avg(off);
+        const diff = (avgOn != null && avgOff != null) ? avgOn - avgOff : null;
+
+        $("triggerCompareResult").textContent =
+          `${TRIGGER_LABEL[triggerKey]} / ${SYMPTOM_LABEL[symptomKey]}: ` +
+          `あり 平均 ${avgOn == null ? "-" : formatNum(avgOn)} (${on.length}件), ` +
+          `なし 平均 ${avgOff == null ? "-" : formatNum(avgOff)} (${off.length}件), ` +
+          `差 ${diff == null ? "-" : formatNum(diff)}`;
+      }
+
+      function highestAvgSymptom(data) {
+        const list = SYMPTOMS.map(s => ({ key: s.key, avg: computeStats(data, s.key).avg }));
+        list.sort((a, b) => b.avg - a.avg);
+        return list[0]?.key || "shoulder";
+      }
+
+      function getTriggerHypotheses(data, symptomKey) {
+        const avg = arr => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+        return TRIGGER_KEYS.map(key => {
+          const withT = data.filter(r => r.triggers[key]).map(r => r[symptomKey]);
+          const withoutT = data.filter(r => !r.triggers[key]).map(r => r[symptomKey]);
+          const a = avg(withT);
+          const b = avg(withoutT);
+          const diff = (a != null && b != null) ? a - b : null;
+          return { key, diff, withCount: withT.length, withoutCount: withoutT.length };
+        })
+          .filter(x => x.diff != null)
+          .sort((a, b) => b.diff - a.diff);
+      }
+
+      function suggestInterventions(symptomKey, data) {
+        const keys = INTERVENTIONS_BY_SYMPTOM[symptomKey] || INTERVENTION_KEYS.slice(0, 2);
+        const scored = keys.map(k => {
+          const total = data.length || 1;
+          const done = data.filter(r => r.interventions && r.interventions[k]).length;
+          const rate = done / total;
+          return { key: k, rate };
+        });
+        return scored.sort((a, b) => a.rate - b.rate);
+      }
+
+      function generateAiSummary() {
+        const range = getRange("custom", $("aiStart").value, $("aiEnd").value);
+        const data = sortByNewest(records.filter(r => inRange(r, range)));
+
+        if (!data.length) {
+          $("aiSummary").value = "対象期間のデータがありません。";
+          return;
+        }
+
+        const main = highestAvgSymptom(data);
+        const mainStats = computeStats(data, main);
+        const worst = topWorsen(data, main, 3);
+        const hypotheses = getTriggerHypotheses(data, main).slice(0, 3);
+        const suggestions = suggestInterventions(main, data).slice(0, 3);
+
+        const text = [
+          `期間: ${$("aiStart").value} 〜 ${$("aiEnd").value} (${data.length}件)`,
+          `主症状平均: ${SYMPTOM_LABEL[main]} ${formatNum(mainStats.avg)} (最大 ${mainStats.max})`,
+          `悪化日:`,
+          ...worst.map((x, i) => `${i + 1}. ${x.record.date} ${x.record.time} 値 ${x.value} ${x.record.note ? `| ${truncate(x.record.note, 28)}` : ""}`),
+          `トリガー仮説:`,
+          ...(hypotheses.length
+            ? hypotheses.map((h, i) => `${i + 1}. ${TRIGGER_LABEL[h.key]} がある日で ${SYMPTOM_LABEL[main]} が +${formatNum(h.diff)} 高い`)
+            : ["1. 十分な差が出るトリガーは未検出"]),
+          `次の介入候補:`,
+          ...suggestions.map((s, i) => `${i + 1}. ${INTERVENTION_LABEL[s.key]} (実施率 ${formatNum(s.rate * 100)}%)`)
+        ].join("\n");
+
+        $("aiSummary").value = text;
+      }
+
+      function onCreatePlan(e) {
+        e.preventDefault();
+        const name = ($("planName").value || "").trim();
+        if (!name) {
+          alert("計画名を入力してください。");
+          return;
+        }
+
+        const newPlan = normalizePlan({
+          id: createId("plan"),
+          name,
+          targetSymptom: $("planTargetSymptom").value,
+          interventionKey: $("planInterventionKey").value,
+          startDate: $("planStartDate").value || todayStr(),
+          phaseDays: Number($("planPhaseDays").value || 7),
+          sequence: ["A", "B", "A", "B"],
+          notes: ($("planNotes").value || "").trim(),
+          isActive: false
+        });
+
+        plans.push(newPlan);
+        savePlans();
+        $("planForm").reset();
+        $("planStartDate").value = todayStr();
+        $("planPhaseDays").value = "7";
+        renderPlanList();
+        renderActivePlan();
+      }
+
+      function planPhaseAtDate(plan, dateStr) {
+        const start = new Date(`${plan.startDate}T00:00:00`);
+        const target = new Date(`${dateStr}T00:00:00`);
+        const diffDays = Math.floor((target - start) / 86400000);
+        if (diffDays < 0) return "before";
+        const idx = Math.floor(diffDays / plan.phaseDays);
+        if (idx >= plan.sequence.length) return "after";
+        return plan.sequence[idx];
+      }
+
+      function planDateRange(plan) {
+        const start = new Date(`${plan.startDate}T00:00:00`);
+        const totalDays = plan.phaseDays * plan.sequence.length;
+        const end = new Date(start);
+        end.setDate(end.getDate() + totalDays - 1);
+        return { start: formatDateInput(start), end: formatDateInput(end) };
+      }
+
+      function renderPlanList() {
+        const box = $("planList");
+        if (!plans.length) {
+          box.innerHTML = `<div class="muted">計画がありません。</div>`;
+          return;
+        }
+
+        const sorted = [...plans].sort((a, b) => Number(b.isActive) - Number(a.isActive) || (a.startDate < b.startDate ? 1 : -1));
+        box.innerHTML = sorted.map(p => {
+          const range = planDateRange(p);
+          return `
+            <div class="record-row" data-plan="${p.id}">
+              <div class="row-head">
+                <strong>${p.name} ${p.isActive ? "（有効）" : ""}</strong>
+                <span class="muted">${range.start} 〜 ${range.end}</span>
+              </div>
+              <div class="chips">
+                <span class="chip">対象: ${SYMPTOM_LABEL[p.targetSymptom]}</span>
+                <span class="chip">介入: ${INTERVENTION_LABEL[p.interventionKey]}</span>
+                <span class="chip">phaseDays: ${p.phaseDays}</span>
+              </div>
+              <div class="subtle">${truncate(p.notes || "", 50)}</div>
+              <div class="inline" style="margin-top:8px;">
+                <button type="button" class="btn plan-toggle" data-id="${p.id}">
+                  ${p.isActive ? "無効化" : "有効化"}
+                </button>
+                <button type="button" class="btn danger plan-delete" data-id="${p.id}">
+                  削除
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        box.querySelectorAll(".plan-toggle").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const target = plans.find(p => p.id === id);
+            if (!target) return;
+            const nextActive = !target.isActive;
+            plans.forEach(p => (p.isActive = nextActive ? p.id === id : false));
+            savePlans();
+            renderPlanList();
+            renderActivePlan();
+          });
+        });
+
+        box.querySelectorAll(".plan-delete").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            if (!confirm("この計画を削除しますか？")) return;
+            plans = plans.filter(p => p.id !== id);
+            savePlans();
+            renderPlanList();
+            renderActivePlan();
+          });
+        });
+      }
+
+      function renderActivePlan() {
+        const box = $("activePlanStatus");
+        const active = plans.find(p => p.isActive);
+        if (!active) {
+          box.innerHTML = "有効な計画がありません。";
+          return;
+        }
+
+        const today = todayStr();
+        const phase = planPhaseAtDate(active, today);
+        const phaseText = phase === "A" || phase === "B" ? `${phase}期` : (phase === "before" ? "開始前" : "終了");
+
+        const inWindow = records.map(r => ({ record: r, phase: planPhaseAtDate(active, r.date) }))
+          .filter(x => x.phase === "A" || x.phase === "B");
+
+        const aVals = inWindow.filter(x => x.phase === "A").map(x => x.record[active.targetSymptom]);
+        const bVals = inWindow.filter(x => x.phase === "B").map(x => x.record[active.targetSymptom]);
+        const aAvg = aVals.length ? aVals.reduce((a, b) => a + b, 0) / aVals.length : null;
+        const bAvg = bVals.length ? bVals.reduce((a, b) => a + b, 0) / bVals.length : null;
+        const diff = (aAvg != null && bAvg != null) ? bAvg - aAvg : null;
+
+        const bRecords = inWindow.filter(x => x.phase === "B").map(x => x.record);
+        const bDone = bRecords.filter(r => r.interventions && r.interventions[active.interventionKey]).length;
+        const bRate = bRecords.length ? (bDone / bRecords.length) * 100 : null;
+
+        const todayRecords = sortByNewest(records.filter(r => r.date === today));
+        const todayLatest = todayRecords[0] || null;
+        const bWarning = phase === "B" && (!todayLatest || !todayLatest.interventions[active.interventionKey]);
+
+        const range = planDateRange(active);
+
+        box.innerHTML = `
+          <div><strong>${active.name}</strong></div>
+          <div class="subtle">期間: ${range.start} 〜 ${range.end}</div>
+          <div class="subtle">今日のフェーズ: <strong>${phaseText}</strong></div>
+          <div style="margin-top:6px;">
+            A期平均: ${aAvg == null ? "-" : formatNum(aAvg)} /
+            B期平均: ${bAvg == null ? "-" : formatNum(bAvg)} /
+            差(B-A): ${diff == null ? "-" : formatNum(diff)}
+          </div>
+          <div>B期実施率: ${bRate == null ? "-" : `${formatNum(bRate)}%`} (${bDone}/${bRecords.length})</div>
+          ${bWarning ? `<div class="warning-box">B期ですが、今日の「${INTERVENTION_LABEL[active.interventionKey]}」が未チェックです。</div>` : ""}
+        `;
+      }
+
+      function computeTrend(data, symptomKey) {
+        if (data.length < 4) return "データ不足";
+        const sorted = sortByOldest(data);
+        const mid = Math.floor(sorted.length / 2);
+        const first = sorted.slice(0, mid).map(r => r[symptomKey]);
+        const second = sorted.slice(mid).map(r => r[symptomKey]);
+        const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+        const diff = avg(second) - avg(first);
+        if (diff > 0.5) return "悪化傾向";
+        if (diff < -0.5) return "改善傾向";
+        return "横ばい";
+      }
+
+      function generateDoctorShare() {
+        const range = getRange("custom", $("docStart").value, $("docEnd").value);
+        const data = sortByNewest(records.filter(r => inRange(r, range)));
+
+        if (!data.length) {
+          $("doctorThreeLine").value = "期間データがありません。";
+          $("doctorDetail").value = "期間データがありません。";
+          return;
+        }
+
+        const main = highestAvgSymptom(data);
+        const mainStat = computeStats(data, main);
+        const trend = computeTrend(data, main);
+
+        const three = [
+          `期間: ${$("docStart").value} 〜 ${$("docEnd").value} (${data.length}件)`,
+          `主症状: ${SYMPTOM_LABEL[main]} 平均 ${formatNum(mainStat.avg)} / 最大 ${mainStat.max}`,
+          `悪化傾向: ${trend}`
+        ].join("\n");
+
+        const symptomLines = SYMPTOMS.map(s => {
+          const st = computeStats(data, s.key);
+          return `- ${s.label}: 平均 ${formatNum(st.avg)} / 最大 ${st.max} / 最小 ${st.min}`;
+        }).join("\n");
+
+        const worst = topWorsen(data, null, 3)
+          .map((x, i) => `${i + 1}. ${x.record.date} ${x.record.time} ${SYMPTOM_LABEL[x.key]} ${x.value} ${x.record.note ? `| ${truncate(x.record.note, 26)}` : ""}`)
+          .join("\n");
+
+        const triggerHyp = getTriggerHypotheses(data, main).slice(0, 3);
+        const triggerLines = triggerHyp.length
+          ? triggerHyp.map((h, i) => `${i + 1}. ${TRIGGER_LABEL[h.key]}: 差 +${formatNum(h.diff)} (${h.withCount}件)` ).join("\n")
+          : "有意な差が出るトリガーなし";
+
+        const avgLife = (key) => {
+          const vals = data.map(r => r[key]).filter(v => v != null && Number.isFinite(v));
+          if (!vals.length) return "-";
+          return formatNum(vals.reduce((a, b) => a + b, 0) / vals.length);
+        };
+
+        const interventionRates = INTERVENTION_KEYS.map(k => {
+          const done = data.filter(r => r.interventions && r.interventions[k]).length;
+          const rate = data.length ? (done / data.length) * 100 : 0;
+          return { key: k, rate };
+        }).sort((a, b) => b.rate - a.rate);
+
+        const rateLines = interventionRates.slice(0, 5)
+          .map(x => `- ${INTERVENTION_LABEL[x.key]}: ${formatNum(x.rate)}%`)
+          .join("\n");
+
+        const next = suggestInterventions(main, data).slice(0, 3)
+          .map((x, i) => `${i + 1}. ${INTERVENTION_LABEL[x.key]}（現状実施率 ${formatNum(x.rate * 100)}%）`)
+          .join("\n");
+
+        const detail = [
+          `【症状統計】`,
+          symptomLines,
+          ``,
+          `【悪化日トップ3】`,
+          worst,
+          ``,
+          `【トリガー分析】`,
+          triggerLines,
+          ``,
+          `【生活因子】`,
+          `- 睡眠 平均 ${avgLife("sleepHours")} 時間`,
+          `- ストレス 平均 ${avgLife("stress")}`,
+          `- 作業時間 平均 ${avgLife("workHours")} 時間`,
+          ``,
+          `【介入実施率】`,
+          rateLines,
+          ``,
+          `【次の介入案】`,
+          next
+        ].join("\n");
+
+        $("doctorThreeLine").value = three;
+        $("doctorDetail").value = detail;
+      }
+
+      function escapeCSV(v) {
+        if (v == null) return "";
+        const s = String(v).replace(/"/g, '""');
+        return /[",\n]/.test(s) ? `"${s}"` : s;
+      }
+
+      function exportCSV() {
+        const headers = [
+          "id", "date", "time",
+          "shoulder", "neck", "throat", "lowerBack",
+          "sleepHours", "stress", "workHours", "note",
+          ...TRIGGER_KEYS.map(k => `trigger_${k}`),
+          ...INTERVENTION_KEYS.map(k => `intervention_${k}`),
+          "interventionNote"
+        ];
+
+        const rows = records.map(r => [
+          r.id, r.date, r.time,
+          r.shoulder, r.neck, r.throat, r.lowerBack,
+          r.sleepHours ?? "", r.stress ?? "", r.workHours ?? "", r.note || "",
+          ...TRIGGER_KEYS.map(k => (r.triggers[k] ? 1 : 0)),
+          ...INTERVENTION_KEYS.map(k => (r.interventions[k] ? 1 : 0)),
+          r.interventionNote || ""
+        ]);
+
+        const csv = [headers, ...rows].map(row => row.map(escapeCSV).join(",")).join("\n");
+        downloadFile(`ts_pain_records_${todayStr()}.csv`, "\ufeff" + csv, "text/csv;charset=utf-8;");
+      }
+
+      function exportJSON() {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          records,
+          plans
+        };
+        downloadFile(`ts_pain_backup_${todayStr()}.json`, JSON.stringify(payload, null, 2), "application/json");
+      }
+
+      function downloadFile(name, text, mime) {
+        const blob = new Blob([text], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function mergeById(base, incoming) {
+        const map = new Map(base.map(x => [x.id, x]));
+        incoming.forEach(x => map.set(x.id, x));
+        return [...map.values()];
+      }
+
+      function importJSON() {
+        const file = $("importFile").files && $("importFile").files[0];
+        if (!file) {
+          alert("JSONファイルを選択してください。");
+          return;
+        }
+
+        const mode = $("importMode").value;
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(String(reader.result || ""));
+            let incomingRecords = [];
+            let incomingPlans = [];
+
+            if (Array.isArray(parsed)) {
+              incomingRecords = parsed.map(normalizeRecord);
+            } else {
+              if (Array.isArray(parsed.records)) incomingRecords = parsed.records.map(normalizeRecord);
+              if (Array.isArray(parsed.plans)) incomingPlans = parsed.plans.map(normalizePlan);
+              if (Array.isArray(parsed.experimentPlans)) incomingPlans = parsed.experimentPlans.map(normalizePlan);
+            }
+
+            if (mode === "replace") {
+              records = incomingRecords;
+              plans = incomingPlans;
+            } else {
+              records = mergeById(records, incomingRecords);
+              plans = mergeById(plans, incomingPlans);
+            }
+
+            enforceSingleActivePlan();
+            saveRecords();
+            savePlans();
+            renderAll();
+            alert(`インポート完了: 記録 ${incomingRecords.length}件 / 計画 ${incomingPlans.length}件`);
+          } catch {
+            alert("JSONの読み込みに失敗しました。形式を確認してください。");
+          }
+        };
+
+        reader.readAsText(file);
+      }
+
+      function clearAllData() {
+        if (!confirm("全データを削除します。よろしいですか？")) return;
+        if (!confirm("最終確認: 元に戻せません。本当に削除しますか？")) return;
+
+        localStorage.removeItem(STORAGE_KEYS.records);
+        localStorage.removeItem(STORAGE_KEYS.plans);
+        records = [];
+        plans = [];
+        editingRecordId = null;
+        clearRecordForm(true);
+        renderAll();
+      }
+
+      async function copyText(text) {
+        if (!text) return;
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            ta.remove();
+          }
+          alert("コピーしました。");
+        } catch {
+          alert("コピーに失敗しました。手動で選択してください。");
+        }
+      }
+
+      function renderAll() {
+        renderList();
+        renderAnalysisTab();
+        renderPlanList();
+        renderActivePlan();
+        generateDoctorShare();
+      }
+    })();
+  </script>
+</body>
+</html>

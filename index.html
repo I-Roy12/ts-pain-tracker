@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>TS Pain Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -51,6 +51,7 @@
       font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
       font-size: 16px;
       line-height: 1.5;
+      overflow-x: hidden;
     }
 
     .app {
@@ -439,6 +440,36 @@
       background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.9rem;
+      max-height: 44vh;
+      overflow: auto;
+    }
+
+    .tslog-help {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--panel) 96%, var(--accent-soft));
+    }
+
+    .tslog-help summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .tslog-help-body {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .tslog-help-body p {
+      margin: 6px 0;
+    }
+
+    .tslog-help-body strong {
+      color: var(--text);
     }
 
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -446,12 +477,29 @@
 
     @media (max-width: 768px) {
       .app {
-        padding: 10px 10px 40px;
+        padding: calc(10px + env(safe-area-inset-top)) 10px calc(40px + env(safe-area-inset-bottom));
       }
 
       .title-row {
         flex-direction: column;
         align-items: flex-start;
+        gap: 6px;
+        padding: 6px 2px 8px;
+      }
+
+      .tabs {
+        gap: 6px;
+        padding-bottom: 6px;
+      }
+
+      .tab-btn {
+        min-height: 46px;
+        padding: 10px 13px;
+      }
+
+      .card {
+        padding: 14px;
+        margin-top: 10px;
       }
 
       .grid3,
@@ -462,7 +510,7 @@
       }
 
       .chart-wrap {
-        height: 260px;
+        height: 240px;
       }
 
       .toggle-btn {
@@ -471,6 +519,10 @@
 
       .tslog-score-grid {
         grid-template-columns: 1fr;
+      }
+
+      .tslog-help-body {
+        font-size: 0.92rem;
       }
 
       .inline .btn {
@@ -503,6 +555,15 @@
         <p class="subtle">Painモード（30秒入力）: PLI / CGI / TPI とメモを1日1件で保存します。</p>
         <p class="subtle" id="tslogTodayLabel">今日: -</p>
         <p class="subtle mono" id="tslogUserLabel">user_id: -</p>
+        <details class="tslog-help">
+          <summary>PLI / CGI / TPI の説明（開く）</summary>
+          <div class="tslog-help-body">
+            <p><strong>PLI</strong>: Pain Level Index。痛みそのものの強さ（0=なし / 10=最悪）。</p>
+            <p><strong>CGI</strong>: Condition Global Impact。生活全体への支障度（0=支障なし / 10=ほぼ動けない）。</p>
+            <p><strong>TPI</strong>: Trigger Pressure Index。トリガー・負荷の強さ（0=ほぼなし / 10=非常に強い）。</p>
+            <p>目安: 0-3 軽い / 4-6 中等度 / 7-10 強い。迷ったら「いつもより辛いか」でざっくり選べばOKです。</p>
+          </div>
+        </details>
       </div>
 
       <div class="card">
@@ -538,6 +599,28 @@
           <button id="tslogSaveBtn" class="btn primary" type="button">保存（今日を上書き）</button>
         </div>
         <div id="tslogResult" class="subtle" style="margin-top:8px;">未保存</div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">PLI / CGI / TPI グラフ</h3>
+        <div class="grid2">
+          <div class="field">
+            <label for="tslogTrendPeriod">期間</label>
+            <select id="tslogTrendPeriod">
+              <option value="7">7日</option>
+              <option value="30">30日</option>
+              <option value="all">全期間</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>データ件数</label>
+            <div id="tslogTrendCount" class="muted">0件</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="tslogTrendChart"></canvas>
+        </div>
+        <p id="tslogTrendNotice" class="muted"></p>
       </div>
 
       <div class="card">

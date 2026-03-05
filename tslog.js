@@ -1,6 +1,7 @@
 (() => {
   const TSLOG_VERSION = "tslog-0.1";
   const TSLOG_TZ = "Asia/Tokyo";
+  let tslogTrendChart = null;
   const STORAGE = {
     userId: "ts:user_id",
     logs: "ts:logs",
@@ -142,6 +143,12 @@
     return ad < bd ? 1 : (ad > bd ? -1 : 0);
   }
 
+  function compareAsc(a, b) {
+    const ad = `${a.entry.date} ${a.entry.time}`;
+    const bd = `${b.entry.date} ${b.entry.time}`;
+    return ad > bd ? 1 : (ad < bd ? -1 : 0);
+  }
+
   function convertLegacyRecord(rec, userId) {
     const now = getTokyoNow();
     const date = isDate(rec?.date) ? rec.date : now.date;
@@ -239,6 +246,22 @@
 
     logs.sort(compareDesc);
     return logs;
+  }
+
+  function filterByPeriod(logs, period) {
+    if (period === "all") return logs;
+    const days = Number(period || 7);
+    if (!Number.isFinite(days) || days <= 0) return logs;
+
+    const today = getTokyoNow().date;
+    const end = new Date(`${today}T23:59:59`);
+    const start = new Date(end);
+    start.setDate(start.getDate() - (days - 1));
+
+    return logs.filter((log) => {
+      const d = new Date(`${log.entry.date}T00:00:00`);
+      return d >= start && d <= end;
+    });
   }
 
   function saveAll(logs) {
@@ -410,6 +433,86 @@
     });
   }
 
+  function renderTrendChart() {
+    const canvas = byId("tslogTrendChart");
+    const notice = byId("tslogTrendNotice");
+    const count = byId("tslogTrendCount");
+    const period = byId("tslogTrendPeriod")?.value || "7";
+    if (!canvas || !notice || !count) return;
+
+    const logs = filterByPeriod(loadLogs(), period).sort(compareAsc);
+    count.textContent = `${logs.length}件`;
+    notice.textContent = "";
+
+    if (tslogTrendChart) {
+      tslogTrendChart.destroy();
+      tslogTrendChart = null;
+    }
+
+    if (!logs.length) {
+      notice.textContent = "表示できるデータがありません。";
+      return;
+    }
+
+    if (typeof Chart === "undefined") {
+      notice.textContent = "Chart.js の読み込みに失敗しました。";
+      return;
+    }
+
+    const labels = logs.map((log) => `${log.entry.date.slice(5)} ${log.entry.time}`);
+    const pli = logs.map((log) => log.entry.inputs?.pli ?? null);
+    const cgi = logs.map((log) => log.entry.inputs?.cgi ?? null);
+    const tpi = logs.map((log) => log.entry.inputs?.tpi ?? null);
+
+    tslogTrendChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "PLI",
+            data: pli,
+            borderColor: "#2b90d9",
+            backgroundColor: "#2b90d9",
+            tension: 0.25,
+            pointRadius: 3,
+            spanGaps: true
+          },
+          {
+            label: "CGI",
+            data: cgi,
+            borderColor: "#e76f51",
+            backgroundColor: "#e76f51",
+            tension: 0.25,
+            pointRadius: 3,
+            spanGaps: true
+          },
+          {
+            label: "TPI",
+            data: tpi,
+            borderColor: "#2a9d8f",
+            backgroundColor: "#2a9d8f",
+            tension: 0.25,
+            pointRadius: 3,
+            spanGaps: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          y: {
+            min: 0,
+            max: 10,
+            ticks: { stepSize: 1 }
+          }
+        }
+      }
+    });
+  }
+
   function initTSLog() {
     if (!byId("tslogSaveBtn")) return;
 
@@ -429,6 +532,7 @@
         renderResult(log);
         renderHistory();
         renderDetail(log);
+        renderTrendChart();
       });
     }
 
@@ -437,8 +541,14 @@
       exportBtn.addEventListener("click", exportJSON);
     }
 
+    const period = byId("tslogTrendPeriod");
+    if (period) {
+      period.addEventListener("change", renderTrendChart);
+    }
+
     renderToday();
     renderHistory();
+    renderTrendChart();
     if (!loadLogs().length) renderDetail(null);
   }
 

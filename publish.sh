@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 msg="${1:-update $(date '+%Y-%m-%d %H:%M')}"
 
-git add index.html _redirects .gitignore
+git add -A
 
 if git diff --cached --quiet; then
   echo "変更がないためコミットをスキップしました。"

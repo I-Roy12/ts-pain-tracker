@@ -382,6 +382,65 @@
       font-size: 1rem;
     }
 
+    .tslog-score-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .tslog-score-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--panel) 92%, var(--accent-soft));
+    }
+
+    .tslog-score-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .tslog-value {
+      font-weight: 800;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 10px;
+      min-width: 2.2em;
+      text-align: center;
+    }
+
+    .alert-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      margin-right: 6px;
+    }
+
+    .alert-level-0 { background: color-mix(in srgb, var(--panel) 85%, #58d68d); }
+    .alert-level-1 { background: color-mix(in srgb, var(--panel) 80%, #f6dd63); }
+    .alert-level-2 { background: color-mix(in srgb, var(--panel) 75%, #f5b041); }
+    .alert-level-3 { background: color-mix(in srgb, var(--panel) 65%, #ec7063); }
+
+    .tslog-detail {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+    }
+
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .hidden { display: none !important; }
 
@@ -410,6 +469,10 @@
         flex: 1 1 45%;
       }
 
+      .tslog-score-grid {
+        grid-template-columns: 1fr;
+      }
+
       .inline .btn {
         width: 100%;
       }
@@ -424,7 +487,8 @@
         <div id="clock" class="clock"></div>
       </div>
       <nav class="tabs">
-        <button class="tab-btn active" data-tab="input">入力</button>
+        <button class="tab-btn active" data-tab="tslog">TSLog v0.1</button>
+        <button class="tab-btn" data-tab="input">入力</button>
         <button class="tab-btn" data-tab="list">一覧</button>
         <button class="tab-btn" data-tab="analysis">グラフ/分析</button>
         <button class="tab-btn" data-tab="abab">ABAB</button>
@@ -433,7 +497,67 @@
       </nav>
     </header>
 
-    <section id="tab-input" class="panel active">
+    <section id="tab-tslog" class="panel active">
+      <div class="card">
+        <h2 class="section-title">Project TS Pain Tracker（TSLog v0.1）</h2>
+        <p class="subtle">Painモード（30秒入力）: PLI / CGI / TPI とメモを1日1件で保存します。</p>
+        <p class="subtle" id="tslogTodayLabel">今日: -</p>
+        <p class="subtle mono" id="tslogUserLabel">user_id: -</p>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">今日の入力（Painモード）</h3>
+        <div class="tslog-score-grid">
+          <div class="tslog-score-item">
+            <div class="tslog-score-head">
+              <strong>PLI</strong>
+              <span class="tslog-value" id="tslogPliValue">0</span>
+            </div>
+            <input id="tslogPli" type="range" min="0" max="10" step="1" value="0" />
+          </div>
+          <div class="tslog-score-item">
+            <div class="tslog-score-head">
+              <strong>CGI</strong>
+              <span class="tslog-value" id="tslogCgiValue">0</span>
+            </div>
+            <input id="tslogCgi" type="range" min="0" max="10" step="1" value="0" />
+          </div>
+          <div class="tslog-score-item">
+            <div class="tslog-score-head">
+              <strong>TPI</strong>
+              <span class="tslog-value" id="tslogTpiValue">0</span>
+            </div>
+            <input id="tslogTpi" type="range" min="0" max="10" step="1" value="0" />
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label for="tslogNotes">notes（任意）</label>
+          <textarea id="tslogNotes" maxlength="300" placeholder="短いメモ（任意）"></textarea>
+        </div>
+        <div class="inline" style="margin-top:8px;">
+          <button id="tslogSaveBtn" class="btn primary" type="button">保存（今日を上書き）</button>
+        </div>
+        <div id="tslogResult" class="subtle" style="margin-top:8px;">未保存</div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">履歴（新しい順）</h3>
+        <p class="subtle">行クリックでその日のTSLog JSONを表示します。</p>
+        <div id="tslogHistoryList" class="record-list"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">詳細JSON</h3>
+        <pre id="tslogDetail" class="tslog-detail">{}</pre>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">エクスポート</h3>
+        <button id="tslogExportBtn" class="btn" type="button">JSONエクスポート</button>
+      </div>
+    </section>
+
+    <section id="tab-input" class="panel">
       <div class="card">
         <h2 class="section-title">1分入力</h2>
         <p class="subtle">スライダー＋トグル中心で最短記録。行クリックで編集できます。</p>
@@ -1955,5 +2079,6 @@
       }
     })();
   </script>
+  <script src="./tslog.js"></script>
 </body>
 </html>

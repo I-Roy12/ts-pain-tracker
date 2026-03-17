@@ -257,6 +257,7 @@
     const end = new Date(`${today}T23:59:59`);
     const start = new Date(end);
     start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
 
     return logs.filter((log) => {
       const d = new Date(`${log.entry.date}T00:00:00`);

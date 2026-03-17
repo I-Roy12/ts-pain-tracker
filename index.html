@@ -535,6 +535,94 @@
       margin-top: 0;
     }
 
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .calendar-title {
+      font-weight: 700;
+      font-size: 1rem;
+      min-width: 6.5em;
+      text-align: center;
+    }
+
+    .calendar-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .calendar-weekday,
+    .calendar-day {
+      min-height: 52px;
+      border-radius: 10px;
+    }
+
+    .calendar-weekday {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+    }
+
+    .calendar-day {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      padding: 8px 6px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .calendar-day.empty {
+      cursor: default;
+      opacity: 0.5;
+      background: color-mix(in srgb, var(--panel) 98%, var(--border));
+    }
+
+    .calendar-day.today {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+
+    .calendar-day.has-record:hover {
+      border-color: var(--accent);
+    }
+
+    .calendar-day-label {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .calendar-day-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+
+    .severity-0 { background: color-mix(in srgb, var(--panel) 92%, #cfeede); }
+    .severity-1 { background: color-mix(in srgb, var(--panel) 86%, #ffe9bf); }
+    .severity-2 { background: color-mix(in srgb, var(--panel) 82%, #ffd29f); }
+    .severity-3 { background: color-mix(in srgb, var(--panel) 78%, #ffb0a8); }
+
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .hidden { display: none !important; }
 
@@ -596,6 +684,19 @@
 
       .scroll-panel {
         max-height: 42vh;
+      }
+
+      .calendar-grid {
+        gap: 4px;
+      }
+
+      .calendar-day {
+        min-height: 48px;
+        padding: 6px 4px;
+      }
+
+      .calendar-day-meta {
+        font-size: 0.72rem;
       }
 
       .inline .btn {
@@ -791,6 +892,21 @@
     </section>
 
     <section id="tab-list" class="panel">
+      <div class="card">
+        <div class="calendar-head">
+          <div>
+            <h2 class="section-title" style="margin-bottom:2px;">カレンダー</h2>
+            <div class="subtle">色はその日の最大症状スコアです。日をタップすると編集へ移動します。</div>
+          </div>
+          <div class="calendar-nav">
+            <button id="btnPrevMonth" class="btn" type="button">前月</button>
+            <div id="calendarMonthLabel" class="calendar-title"></div>
+            <button id="btnNextMonth" class="btn" type="button">次月</button>
+          </div>
+        </div>
+        <div id="recordCalendar" class="calendar-grid"></div>
+      </div>
+
       <div class="card">
         <h2 class="section-title">一覧（新しい順）</h2>
         <div class="grid3">
@@ -1151,6 +1267,11 @@
       let editingRecordId = null;
       let chart = null;
       let analysisDataset = [];
+      const now = new Date();
+      let calendarMonthState = {
+        year: now.getFullYear(),
+        month: now.getMonth()
+      };
 
       init();
 
@@ -1224,8 +1345,12 @@
 
       function formatTimeInput(d) {
         const hh = String(d.getHours()).padStart(2, "0");
-        const mm = String(d.getMinutes()).padStart(2, "0");
-        return `${hh}:${mm}`;
+        const min = String(d.getMinutes()).padStart(2, "0");
+        return `${hh}:${min}`;
+      }
+
+      function formatMonthLabel(year, month) {
+        return `${year}年${month + 1}月`;
       }
 
       function todayStr() {
@@ -1247,6 +1372,15 @@
           current.setDate(current.getDate() + 1);
         }
         return out;
+      }
+
+      function changeCalendarMonth(delta) {
+        const next = new Date(calendarMonthState.year, calendarMonthState.month + delta, 1);
+        calendarMonthState = {
+          year: next.getFullYear(),
+          month: next.getMonth()
+        };
+        renderCalendar();
       }
 
       function toDate(record) {
@@ -1414,6 +1548,8 @@
         $("listStart").addEventListener("change", renderList);
         $("listEnd").addEventListener("change", renderList);
         $("listSearch").addEventListener("input", renderList);
+        $("btnPrevMonth").addEventListener("click", () => changeCalendarMonth(-1));
+        $("btnNextMonth").addEventListener("click", () => changeCalendarMonth(1));
 
         $("chartPeriod").addEventListener("change", () => {
           toggleCustomRange("chartPeriod", "chartCustomRange");
@@ -1697,6 +1833,79 @@
         box.querySelectorAll(".record-row").forEach(btn => {
           btn.addEventListener("click", () => {
             const rec = records.find(r => r.id === btn.dataset.id);
+            if (!rec) return;
+            loadRecordIntoForm(rec);
+            setTab("input");
+          });
+        });
+      }
+
+      function severityLevelForScore(score) {
+        if (score == null || !Number.isFinite(score)) return -1;
+        if (score >= 8) return 3;
+        if (score >= 5) return 2;
+        if (score >= 2) return 1;
+        return 0;
+      }
+
+      function latestRecordForDate(dateStr) {
+        return sortByNewest(records.filter(r => r.date === dateStr))[0] || null;
+      }
+
+      function maxSymptomScore(record) {
+        if (!record) return null;
+        return Math.max(record.shoulder, record.neck, record.throat, record.lowerBack);
+      }
+
+      function renderCalendar() {
+        const wrap = $("recordCalendar");
+        const label = $("calendarMonthLabel");
+        if (!wrap || !label) return;
+
+        const { year, month } = calendarMonthState;
+        label.textContent = formatMonthLabel(year, month);
+
+        const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+        const first = new Date(year, month, 1);
+        const last = new Date(year, month + 1, 0);
+        const leading = first.getDay();
+        const daysInMonth = last.getDate();
+        const today = todayStr();
+        const cells = [];
+
+        weekdays.forEach(day => {
+          cells.push(`<div class="calendar-weekday">${day}</div>`);
+        });
+
+        for (let i = 0; i < leading; i += 1) {
+          cells.push(`<div class="calendar-day empty" aria-hidden="true"></div>`);
+        }
+
+        for (let day = 1; day <= daysInMonth; day += 1) {
+          const date = formatDateInput(new Date(year, month, day));
+          const record = latestRecordForDate(date);
+          const score = maxSymptomScore(record);
+          const severity = severityLevelForScore(score);
+          const classes = [
+            "calendar-day",
+            record ? "has-record" : "",
+            date === today ? "today" : "",
+            severity >= 0 ? `severity-${severity}` : ""
+          ].filter(Boolean).join(" ");
+
+          cells.push(`
+            <button class="${classes}" type="button" data-date="${date}">
+              <span class="calendar-day-label">${day}</span>
+              <span class="calendar-day-meta">${record ? `最大 ${score}` : "記録なし"}</span>
+            </button>
+          `);
+        }
+
+        wrap.innerHTML = cells.join("");
+
+        wrap.querySelectorAll(".calendar-day.has-record").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const rec = latestRecordForDate(btn.dataset.date);
             if (!rec) return;
             loadRecordIntoForm(rec);
             setTab("input");
@@ -2396,6 +2605,7 @@
 
       function renderAll() {
         renderRecordCounts();
+        renderCalendar();
         renderList();
         renderAnalysisTab();
         renderPlanList();

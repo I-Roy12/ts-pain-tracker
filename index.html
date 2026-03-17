@@ -986,6 +986,7 @@
             <select id="chartPeriod">
               <option value="7">7日</option>
               <option value="30">30日</option>
+              <option value="month">月表示</option>
               <option value="all">全期間</option>
               <option value="custom">任意</option>
             </select>
@@ -996,6 +997,14 @@
               <div id="chartCount" class="muted">表示 0件</div>
               <div id="chartTotalCount" class="muted">総記録 0件</div>
             </div>
+          </div>
+        </div>
+        <div id="chartMonthNav" class="calendar-head hidden" style="margin-top:8px; margin-bottom:0;">
+          <div class="subtle">月ごとの推移を見返せます。</div>
+          <div class="calendar-nav">
+            <button id="btnPrevChartMonth" class="btn" type="button">前月</button>
+            <div id="chartMonthLabel" class="calendar-title"></div>
+            <button id="btnNextChartMonth" class="btn" type="button">次月</button>
           </div>
         </div>
         <div id="chartCustomRange" class="grid2 hidden" style="margin-top:8px;">
@@ -1311,6 +1320,10 @@
         year: now.getFullYear(),
         month: now.getMonth()
       };
+      let chartMonthState = {
+        year: now.getFullYear(),
+        month: now.getMonth()
+      };
 
       init();
 
@@ -1420,6 +1433,21 @@
           month: next.getMonth()
         };
         renderCalendar();
+      }
+
+      function changeChartMonth(delta) {
+        const next = new Date(chartMonthState.year, chartMonthState.month + delta, 1);
+        chartMonthState = {
+          year: next.getFullYear(),
+          month: next.getMonth()
+        };
+        renderAnalysisTab();
+      }
+
+      function getMonthRange(year, month) {
+        const start = new Date(year, month, 1, 0, 0, 0, 0);
+        const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+        return { start, end };
       }
 
       function toDate(record) {
@@ -1646,6 +1674,8 @@
         });
         $("chartStart").addEventListener("change", renderAnalysisTab);
         $("chartEnd").addEventListener("change", renderAnalysisTab);
+        $("btnPrevChartMonth").addEventListener("click", () => changeChartMonth(-1));
+        $("btnNextChartMonth").addEventListener("click", () => changeChartMonth(1));
 
         $("analysisTrigger").addEventListener("change", () => renderTriggerComparison(analysisDataset));
         $("analysisSymptom").addEventListener("change", () => renderTriggerComparison(analysisDataset));
@@ -1714,6 +1744,15 @@
       function toggleCustomRange(periodId, wrapId) {
         const show = $(periodId).value === "custom";
         $(wrapId).classList.toggle("hidden", !show);
+      }
+
+      function toggleChartMonthNav(show) {
+        const nav = $("chartMonthNav");
+        if (!nav) return;
+        nav.classList.toggle("hidden", !show);
+        if (show) {
+          $("chartMonthLabel").textContent = formatMonthLabel(chartMonthState.year, chartMonthState.month);
+        }
       }
 
       function collectToggle(kind, keys) {
@@ -2035,8 +2074,11 @@
 
       function renderAnalysisTab() {
         const period = $("chartPeriod").value;
-        const range = getRange(period, $("chartStart").value, $("chartEnd").value);
+        const range = period === "month"
+          ? getMonthRange(chartMonthState.year, chartMonthState.month)
+          : getRange(period, $("chartStart").value, $("chartEnd").value);
         const data = sortByOldest(records.filter(r => inRange(r, range)));
+        toggleChartMonthNav(period === "month");
 
         const visibleCount = period === "all"
           ? data.length

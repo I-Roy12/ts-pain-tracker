@@ -1238,6 +1238,17 @@
         return formatDateInput(d);
       }
 
+      function datesBetween(startDate, endDate) {
+        const out = [];
+        const current = new Date(`${startDate}T00:00:00`);
+        const end = new Date(`${endDate}T00:00:00`);
+        while (current <= end) {
+          out.push(formatDateInput(current));
+          current.setDate(current.getDate() + 1);
+        }
+        return out;
+      }
+
       function toDate(record) {
         const t = record.time || "00:00";
         return new Date(`${record.date}T${t}:00`);
@@ -1724,17 +1735,21 @@
         const range = getRange(period, $("chartStart").value, $("chartEnd").value);
         const data = sortByOldest(records.filter(r => inRange(r, range)));
 
-        $("chartCount").textContent = `表示 ${data.length}件`;
+        const visibleCount = period === "all"
+          ? data.length
+          : (range ? datesBetween(formatDateInput(range.start), formatDateInput(range.end)).length : data.length);
+
+        $("chartCount").textContent = `表示 ${visibleCount}日`;
         if ($("chartTotalCount")) $("chartTotalCount").textContent = `総記録 ${records.length}件`;
         analysisDataset = data;
-        renderChart(data);
+        renderChart(data, range);
         renderAnalysisCards(data);
         renderTriggerComparison(data);
         renderLifeFactorAnalysis(data);
         renderTriggerRanking(data);
       }
 
-      function renderChart(data) {
+      function renderChart(data, range) {
         const notice = $("chartNotice");
         notice.textContent = "";
         if (chart) {
@@ -1752,14 +1767,27 @@
           return;
         }
 
-        const labels = data.map(r => `${r.date.slice(5)} ${r.time}`);
+        const hasFixedWindow = !!range;
+        const days = hasFixedWindow ? datesBetween(formatDateInput(range.start), formatDateInput(range.end)) : [];
+        const latestByDate = new Map();
+        data.forEach(r => {
+          const prev = latestByDate.get(r.date);
+          if (!prev || toDate(r) > toDate(prev)) latestByDate.set(r.date, r);
+        });
+
+        const chartRows = hasFixedWindow
+          ? days.map(date => latestByDate.get(date) || { date, time: "", shoulder: null, neck: null, throat: null, lowerBack: null })
+          : data;
+
+        const labels = chartRows.map(r => r.time ? `${r.date.slice(5)} ${r.time}` : r.date.slice(5));
         const datasets = SYMPTOMS.map(s => ({
           label: s.label,
-          data: data.map(r => r[s.key]),
+          data: chartRows.map(r => r[s.key] ?? null),
           borderColor: CHART_COLORS[s.key],
           backgroundColor: CHART_COLORS[s.key],
           tension: 0.25,
-          pointRadius: 3
+          pointRadius: 3,
+          spanGaps: false
         }));
 
         chart = new Chart($("symptomChart"), {

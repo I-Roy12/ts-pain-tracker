@@ -45,6 +45,13 @@
     return (date || "").replace(/-/g, "");
   }
 
+  function formatDateInput(date) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   function isDate(value) {
     return /^\d{4}-\d{2}-\d{2}$/.test(value || "");
   }
@@ -265,6 +272,38 @@
     });
   }
 
+  function periodDays(period) {
+    if (period === "all") return null;
+    const days = Number(period || 7);
+    return Number.isFinite(days) && days > 0 ? days : null;
+  }
+
+  function buildDaySeries(logs, period) {
+    const days = periodDays(period);
+    if (!days) return logs.sort(compareAsc);
+
+    const today = getTokyoNow().date;
+    const dayMap = new Map(logs.map((log) => [log.entry.date, log]));
+    const series = [];
+    const start = new Date(`${today}T00:00:00`);
+    start.setDate(start.getDate() - (days - 1));
+
+    for (let i = 0; i < days; i += 1) {
+      const current = new Date(start);
+      current.setDate(start.getDate() + i);
+      const date = formatDateInput(current);
+      series.push(dayMap.get(date) || {
+        entry: {
+          date,
+          time: "",
+          inputs: { pli: null, cgi: null, tpi: null }
+        }
+      });
+    }
+
+    return series;
+  }
+
   function saveAll(logs) {
     localStorage.setItem(STORAGE.logs, JSON.stringify(logs));
   }
@@ -446,7 +485,8 @@
     if (!canvas || !notice || !count) return;
 
     const logs = filterByPeriod(loadLogs(), period).sort(compareAsc);
-    count.textContent = `${logs.length}件`;
+    const series = buildDaySeries(logs, period);
+    count.textContent = `${series.length}日`;
     notice.textContent = "";
 
     if (tslogTrendChart) {
@@ -464,10 +504,10 @@
       return;
     }
 
-    const labels = logs.map((log) => `${log.entry.date.slice(5)} ${log.entry.time}`);
-    const pli = logs.map((log) => log.entry.inputs?.pli ?? null);
-    const cgi = logs.map((log) => log.entry.inputs?.cgi ?? null);
-    const tpi = logs.map((log) => log.entry.inputs?.tpi ?? null);
+    const labels = series.map((log) => log.entry.time ? `${log.entry.date.slice(5)} ${log.entry.time}` : log.entry.date.slice(5));
+    const pli = series.map((log) => log.entry.inputs?.pli ?? null);
+    const cgi = series.map((log) => log.entry.inputs?.cgi ?? null);
+    const tpi = series.map((log) => log.entry.inputs?.tpi ?? null);
 
     tslogTrendChart = new Chart(canvas, {
       type: "line",

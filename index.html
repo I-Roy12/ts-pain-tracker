@@ -1026,7 +1026,8 @@
       </div>
 
       <div class="card">
-        <h3 class="section-title">AI用週次まとめ生成</h3>
+        <h3 class="section-title">AI考察まとめ生成</h3>
+        <p class="subtle">期間内の傾向・仮説・次の一手を、ローカル分析だけで少し踏み込んで整理します。</p>
         <div class="grid2">
           <div class="field">
             <label for="aiStart">開始日</label>
@@ -2314,6 +2315,55 @@
         return scored.sort((a, b) => a.rate - b.rate);
       }
 
+      function averageValue(rows, key) {
+        const vals = rows.map(r => r[key]).filter(v => v != null && Number.isFinite(v));
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      }
+
+      function getLifeFactorHypotheses(data, symptomKey) {
+        const highDays = data.filter(r => r[symptomKey] >= 6);
+        const defs = [
+          { key: "sleepHours", label: "睡眠時間", direction: "low" },
+          { key: "stress", label: "ストレス", direction: "high" },
+          { key: "workHours", label: "作業時間", direction: "high" }
+        ];
+
+        return defs.map(def => {
+          const allAvg = averageValue(data, def.key);
+          const highAvg = averageValue(highDays, def.key);
+          if (allAvg == null || highAvg == null) return null;
+          const diff = highAvg - allAvg;
+          const impact = def.direction === "low" ? -diff : diff;
+          return { ...def, allAvg, highAvg, diff, impact };
+        })
+          .filter(Boolean)
+          .sort((a, b) => b.impact - a.impact);
+      }
+
+      function buildNextActionLines(symptomKey, data, triggerHypotheses, lifeHypotheses) {
+        const suggestions = [];
+        const interventionGap = suggestInterventions(symptomKey, data).slice(0, 2);
+
+        if (triggerHypotheses[0] && triggerHypotheses[0].diff > 0.6) {
+          suggestions.push(`最優先: ${TRIGGER_LABEL[triggerHypotheses[0].key]} が強い悪化候補なので、次週はこの要因の回避/軽減を最優先で観察する。`);
+        }
+
+        if (lifeHypotheses[0] && lifeHypotheses[0].impact > 0.4) {
+          const life = lifeHypotheses[0];
+          if (life.key === "sleepHours") {
+            suggestions.push(`生活因子: つらい日に睡眠が ${formatNum(life.highAvg)}時間で全体より少ないため、まず睡眠確保を優先する。`);
+          } else {
+            suggestions.push(`生活因子: つらい日に${life.label}が高めなので、負荷を下げた日の変化を比べる。`);
+          }
+        }
+
+        interventionGap.forEach((item) => {
+          suggestions.push(`介入候補: ${INTERVENTION_LABEL[item.key]} の実施率が ${formatNum(item.rate * 100)}% と低めなので、試す価値がある。`);
+        });
+
+        return suggestions.slice(0, 4);
+      }
+
       function generateAiSummary() {
         const range = getRange("custom", $("aiStart").value, $("aiEnd").value);
         const data = sortByNewest(records.filter(r => inRange(r, range)));
@@ -2327,19 +2377,40 @@
         const mainStats = computeStats(data, main);
         const worst = topWorsen(data, main, 3);
         const hypotheses = getTriggerHypotheses(data, main).slice(0, 3);
-        const suggestions = suggestInterventions(main, data).slice(0, 3);
+        const lifeHypotheses = getLifeFactorHypotheses(data, main).slice(0, 3);
+        const recovery = computeRecoveryStats(data, main);
+        const trend = computeTrend(data, main);
+        const suggestions = buildNextActionLines(main, data, hypotheses, lifeHypotheses);
 
         const text = [
           `期間: ${$("aiStart").value} 〜 ${$("aiEnd").value} (${data.length}件)`,
-          `主症状平均: ${SYMPTOM_LABEL[main]} ${formatNum(mainStats.avg)} (最大 ${mainStats.max})`,
-          `悪化日:`,
+          ``,
+          `【主観察】`,
+          `- 主症状は ${SYMPTOM_LABEL[main]} で、平均 ${formatNum(mainStats.avg)} / 最大 ${mainStats.max} / 最小 ${mainStats.min}`,
+          `- 期間全体としては ${trend}`,
+          `- 回復目安は ${recovery.avg == null ? "まだ十分な観測なし" : `平均 ${formatNum(recovery.avg)}日`}`,
+          recovery.activeStart ? `- 現在は ${recovery.activeStart} から ${recovery.activeDays}日連続で高め` : `- 直近では強い悪化の継続は確認されていない`,
+          ``,
+          `【悪化日トップ3】`,
           ...worst.map((x, i) => `${i + 1}. ${x.record.date} ${x.record.time} 値 ${x.value} ${x.record.note ? `| ${truncate(x.record.note, 28)}` : ""}`),
-          `トリガー仮説:`,
+          ``,
+          `【トリガー仮説】`,
           ...(hypotheses.length
-            ? hypotheses.map((h, i) => `${i + 1}. ${TRIGGER_LABEL[h.key]} がある日で ${SYMPTOM_LABEL[main]} が +${formatNum(h.diff)} 高い`)
+            ? hypotheses.map((h, i) => `${i + 1}. ${TRIGGER_LABEL[h.key]} がある日で ${SYMPTOM_LABEL[main]} が +${formatNum(h.diff)} 高い (${h.withCount}件)`)
             : ["1. 十分な差が出るトリガーは未検出"]),
-          `次の介入候補:`,
-          ...suggestions.map((s, i) => `${i + 1}. ${INTERVENTION_LABEL[s.key]} (実施率 ${formatNum(s.rate * 100)}%)`)
+          ``,
+          `【生活因子の示唆】`,
+          ...(lifeHypotheses.length
+            ? lifeHypotheses.map((life, i) => {
+                if (life.key === "sleepHours") {
+                  return `${i + 1}. つらい日は${life.label}が ${formatNum(life.highAvg)}時間で、全体平均 ${formatNum(life.allAvg)}時間より少ない`;
+                }
+                return `${i + 1}. つらい日は${life.label}が ${formatNum(life.highAvg)} で、全体平均 ${formatNum(life.allAvg)} より高い`;
+              })
+            : ["1. 生活因子はまだ十分に比較できない"]),
+          ``,
+          `【次の一手】`,
+          ...(suggestions.length ? suggestions.map((line, i) => `${i + 1}. ${line}`) : ["1. まず記録件数を増やして傾向を安定させる"])
         ].join("\n");
 
         $("aiSummary").value = text;

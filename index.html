@@ -472,6 +472,69 @@
       color: var(--text);
     }
 
+    .details-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .details-card > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 16px;
+      font-weight: 700;
+    }
+
+    .details-card > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .details-content {
+      padding: 0 16px 16px;
+    }
+
+    .scroll-panel {
+      max-height: 320px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .summary-note {
+      margin-top: 4px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .list-lines {
+      display: grid;
+      gap: 6px;
+    }
+
+    .rank-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .rank-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+    }
+
+    .rank-item strong {
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .toggle-section .summary-note {
+      margin-top: 0;
+    }
+
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .hidden { display: none !important; }
 
@@ -525,6 +588,16 @@
         font-size: 0.92rem;
       }
 
+      .details-card > summary,
+      .details-content {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .scroll-panel {
+        max-height: 42vh;
+      }
+
       .inline .btn {
         width: 100%;
       }
@@ -555,6 +628,7 @@
         <p class="subtle">Painモード（30秒入力）: PLI / CGI / TPI とメモを1日1件で保存します。</p>
         <p class="subtle" id="tslogTodayLabel">今日: -</p>
         <p class="subtle mono" id="tslogUserLabel">user_id: -</p>
+        <p class="subtle" id="tslogTotalCount">TSLog記録: 0件</p>
         <details class="tslog-help">
           <summary>PLI / CGI / TPI の説明（開く）</summary>
           <div class="tslog-help-body">
@@ -623,11 +697,16 @@
         <p id="tslogTrendNotice" class="muted"></p>
       </div>
 
-      <div class="card">
-        <h3 class="section-title">履歴（新しい順）</h3>
-        <p class="subtle">行クリックでその日のTSLog JSONを表示します。</p>
-        <div id="tslogHistoryList" class="record-list"></div>
-      </div>
+      <details class="card details-card" open>
+        <summary>
+          <span>履歴（新しい順）</span>
+          <span id="tslogHistoryCount" class="summary-note">0件</span>
+        </summary>
+        <div class="details-content">
+          <p class="subtle">行クリックでその日のTSLog JSONを表示します。</p>
+          <div id="tslogHistoryList" class="record-list scroll-panel"></div>
+        </div>
+      </details>
 
       <div class="card">
         <h3 class="section-title">詳細JSON</h3>
@@ -730,7 +809,10 @@
           </div>
           <div class="field">
             <label>件数</label>
-            <div id="listCount" class="muted">0件</div>
+            <div class="list-lines">
+              <div id="listCount" class="muted">表示 0件</div>
+              <div id="totalRecordCount" class="muted">総記録 0件</div>
+            </div>
           </div>
         </div>
         <div id="listCustomRange" class="grid2 hidden" style="margin-top:8px;">
@@ -762,7 +844,10 @@
           </div>
           <div class="field">
             <label>データ件数</label>
-            <div id="chartCount" class="muted">0件</div>
+            <div class="list-lines">
+              <div id="chartCount" class="muted">表示 0件</div>
+              <div id="chartTotalCount" class="muted">総記録 0件</div>
+            </div>
           </div>
         </div>
         <div id="chartCustomRange" class="grid2 hidden" style="margin-top:8px;">
@@ -804,6 +889,17 @@
           </div>
         </div>
         <p id="triggerCompareResult" class="muted" style="margin-top:8px;">データを選択すると比較を表示します。</p>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">生活因子の傾向</h3>
+        <div id="lifeFactorAnalysis" class="stats-grid"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">トリガーランキング</h3>
+        <p class="subtle">主症状への影響が大きそうな順に表示します。</p>
+        <div id="triggerRanking" class="rank-list"></div>
       </div>
 
       <div class="card">
@@ -1229,27 +1325,37 @@
 
         TRIGGER_GROUPS.forEach(group => {
           sections.push(`
-            <div class="card">
-              <h3 class="section-title">${group.title}</h3>
-              <div class="toggle-grid">
-                ${group.items.map(item => `
-                  <button type="button" class="toggle-btn" data-kind="triggers" data-key="${item.key}">${item.label}</button>
-                `).join("")}
+            <details class="card details-card toggle-section">
+              <summary>
+                <span>${group.title}</span>
+                <span class="summary-note">${group.items.length}項目</span>
+              </summary>
+              <div class="details-content">
+                <div class="toggle-grid">
+                  ${group.items.map(item => `
+                    <button type="button" class="toggle-btn" data-kind="triggers" data-key="${item.key}">${item.label}</button>
+                  `).join("")}
+                </div>
               </div>
-            </div>
+            </details>
           `);
         });
 
         INTERVENTION_GROUPS.forEach(group => {
           sections.push(`
-            <div class="card">
-              <h3 class="section-title">${group.title}</h3>
-              <div class="toggle-grid">
-                ${group.items.map(item => `
-                  <button type="button" class="toggle-btn" data-kind="interventions" data-key="${item.key}">${item.label}</button>
-                `).join("")}
+            <details class="card details-card toggle-section">
+              <summary>
+                <span>${group.title}</span>
+                <span class="summary-note">${group.items.length}項目</span>
+              </summary>
+              <div class="details-content">
+                <div class="toggle-grid">
+                  ${group.items.map(item => `
+                    <button type="button" class="toggle-btn" data-kind="interventions" data-key="${item.key}">${item.label}</button>
+                  `).join("")}
+                </div>
               </div>
-            </div>
+            </details>
           `);
         });
 
@@ -1552,7 +1658,7 @@
           return (r.note || "").toLowerCase().includes(keyword) || (r.interventionNote || "").toLowerCase().includes(keyword);
         }));
 
-        $("listCount").textContent = `${filtered.length}件`;
+        $("listCount").textContent = `表示 ${filtered.length}件`;
         const box = $("recordList");
 
         if (!filtered.length) {
@@ -1617,11 +1723,14 @@
         const range = getRange(period, $("chartStart").value, $("chartEnd").value);
         const data = sortByOldest(records.filter(r => inRange(r, range)));
 
-        $("chartCount").textContent = `${data.length}件`;
+        $("chartCount").textContent = `表示 ${data.length}件`;
+        if ($("chartTotalCount")) $("chartTotalCount").textContent = `総記録 ${records.length}件`;
         analysisDataset = data;
         renderChart(data);
         renderAnalysisCards(data);
         renderTriggerComparison(data);
+        renderLifeFactorAnalysis(data);
+        renderTriggerRanking(data);
       }
 
       function renderChart(data) {
@@ -1712,6 +1821,109 @@
           `あり 平均 ${avgOn == null ? "-" : formatNum(avgOn)} (${on.length}件), ` +
           `なし 平均 ${avgOff == null ? "-" : formatNum(avgOff)} (${off.length}件), ` +
           `差 ${diff == null ? "-" : formatNum(diff)}`;
+      }
+
+      function renderLifeFactorAnalysis(data) {
+        const box = $("lifeFactorAnalysis");
+        if (!box) return;
+
+        if (!data.length) {
+          box.innerHTML = `<div class="muted">生活因子を分析するデータがありません。</div>`;
+          return;
+        }
+
+        const main = highestAvgSymptom(data);
+        const highDays = data.filter(r => r[main] >= 6);
+        const factorDefs = [
+          { key: "sleepHours", label: "睡眠", unit: "時間", betterWhenLower: false },
+          { key: "stress", label: "ストレス", unit: "", betterWhenLower: true },
+          { key: "workHours", label: "作業時間", unit: "時間", betterWhenLower: true }
+        ];
+
+        const avg = (rows, key) => {
+          const vals = rows.map(r => r[key]).filter(v => v != null && Number.isFinite(v));
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        };
+
+        box.innerHTML = factorDefs.map((factor) => {
+          const allAvg = avg(data, factor.key);
+          const highAvg = avg(highDays, factor.key);
+          let note = "十分なデータなし";
+
+          if (allAvg != null && highAvg != null) {
+            const diff = highAvg - allAvg;
+            if (factor.key === "sleepHours") {
+              note = `つらい日: ${formatNum(highAvg)}${factor.unit} / 全体: ${formatNum(allAvg)}${factor.unit} / 差 ${formatNum(diff)}`;
+            } else {
+              note = `つらい日: ${formatNum(highAvg)}${factor.unit} / 全体: ${formatNum(allAvg)}${factor.unit} / 差 ${formatNum(diff)}`;
+            }
+          } else if (allAvg != null) {
+            note = `全体平均 ${formatNum(allAvg)}${factor.unit}`;
+          }
+
+          return `
+            <div class="stat-card">
+              <strong>${factor.label}</strong><br>
+              <span class="summary-note">${SYMPTOM_LABEL[main]}が6以上の日との比較</span><br>
+              ${note}
+            </div>
+          `;
+        }).join("");
+      }
+
+      function renderTriggerRanking(data) {
+        const box = $("triggerRanking");
+        if (!box) return;
+
+        if (!data.length) {
+          box.innerHTML = `<div class="muted">ランキングを出せるデータがありません。</div>`;
+          return;
+        }
+
+        const symptomKey = highestAvgSymptom(data);
+        const avg = arr => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+
+        const ranked = TRIGGER_KEYS.map((key) => {
+          const on = data.filter(r => r.triggers && r.triggers[key]).map(r => r[symptomKey]);
+          const off = data.filter(r => !(r.triggers && r.triggers[key])).map(r => r[symptomKey]);
+          const avgOn = avg(on);
+          const avgOff = avg(off);
+          const diff = (avgOn != null && avgOff != null) ? avgOn - avgOff : null;
+          return { key, diff, onCount: on.length, avgOn, avgOff };
+        })
+          .filter(item => item.diff != null && item.onCount > 0)
+          .sort((a, b) => b.diff - a.diff)
+          .slice(0, 5);
+
+        if (!ranked.length) {
+          box.innerHTML = `<div class="muted">トリガー情報がまだ不足しています。</div>`;
+          return;
+        }
+
+        box.innerHTML = ranked.map((item, index) => `
+          <div class="rank-item">
+            <strong>${index + 1}. ${TRIGGER_LABEL[item.key]}</strong>
+            <div class="summary-note">
+              ${SYMPTOM_LABEL[symptomKey]}: あり ${formatNum(item.avgOn)} / なし ${formatNum(item.avgOff)} / 差 +${formatNum(item.diff)} / 記録 ${item.onCount}件
+            </div>
+          </div>
+        `).join("");
+      }
+
+      function renderRecordCounts() {
+        const tslogCount = (() => {
+          try {
+            const raw = localStorage.getItem("ts:logs");
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed.length : 0;
+          } catch {
+            return 0;
+          }
+        })();
+
+        if ($("totalRecordCount")) $("totalRecordCount").textContent = `総記録 ${records.length}件`;
+        if ($("chartTotalCount")) $("chartTotalCount").textContent = `総記録 ${records.length}件`;
+        if ($("tslogTotalCount")) $("tslogTotalCount").textContent = `TSLog記録: ${tslogCount}件`;
       }
 
       function highestAvgSymptom(data) {
@@ -2154,12 +2366,15 @@
       }
 
       function renderAll() {
+        renderRecordCounts();
         renderList();
         renderAnalysisTab();
         renderPlanList();
         renderActivePlan();
         generateDoctorShare();
       }
+
+      window.refreshGlobalCounts = renderRecordCounts;
     })();
   </script>
   <script src="./tslog.js"></script>

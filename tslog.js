@@ -388,6 +388,8 @@
     if (todayLabel) todayLabel.textContent = `今日: ${now.date} (${TSLOG_TZ})`;
     const userLabel = byId("tslogUserLabel");
     if (userLabel) userLabel.textContent = `user_id: ${getUserId()}`;
+    const totalLabel = byId("tslogTotalCount");
+    if (totalLabel) totalLabel.textContent = `TSLog記録: ${logs.length}件`;
 
     setRangeValue("tslogPli", "tslogPliValue", today?.entry?.inputs?.pli ?? 0);
     setRangeValue("tslogCgi", "tslogCgiValue", today?.entry?.inputs?.cgi ?? 0);
@@ -403,7 +405,9 @@
   function renderHistory() {
     const logs = loadLogs();
     const wrap = byId("tslogHistoryList");
+    const count = byId("tslogHistoryCount");
     if (!wrap) return;
+    if (count) count.textContent = `${logs.length}件`;
 
     if (!logs.length) {
       wrap.innerHTML = `<div class="muted">履歴がまだありません。</div>`;
@@ -533,6 +537,9 @@
         renderHistory();
         renderDetail(log);
         renderTrendChart();
+        if (typeof window.refreshGlobalCounts === "function") {
+          window.refreshGlobalCounts();
+        }
       });
     }
 
@@ -549,6 +556,9 @@
     renderToday();
     renderHistory();
     renderTrendChart();
+    if (typeof window.refreshGlobalCounts === "function") {
+      window.refreshGlobalCounts();
+    }
     if (!loadLogs().length) renderDetail(null);
   }
 

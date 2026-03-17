@@ -948,6 +948,7 @@
     <section id="tab-analysis" class="panel">
       <div class="card">
         <h2 class="section-title">折れ線グラフ</h2>
+        <p class="subtle">睡眠時間が入力されている日は、後ろに棒グラフで重ねて表示します。</p>
         <div class="grid3">
           <div class="field">
             <label for="chartPeriod">期間</label>
@@ -1989,15 +1990,35 @@
           : data;
 
         const labels = chartRows.map(r => r.time ? `${r.date.slice(5)} ${r.time}` : r.date.slice(5));
-        const datasets = SYMPTOMS.map(s => ({
+        const sleepData = chartRows.map(r => r.sleepHours ?? null);
+        const hasSleepData = sleepData.some(v => v != null);
+        const lineSets = SYMPTOMS.map(s => ({
           label: s.label,
           data: chartRows.map(r => r[s.key] ?? null),
           borderColor: CHART_COLORS[s.key],
           backgroundColor: CHART_COLORS[s.key],
           tension: 0.25,
           pointRadius: 3,
+          order: 1,
           spanGaps: false
         }));
+        const datasets = hasSleepData
+          ? [
+              {
+                type: "bar",
+                label: "睡眠時間",
+                data: sleepData,
+                yAxisID: "y1",
+                backgroundColor: "rgba(43, 144, 217, 0.18)",
+                borderColor: "rgba(43, 144, 217, 0.35)",
+                borderWidth: 1,
+                barPercentage: 0.7,
+                categoryPercentage: 0.9,
+                order: 0
+              },
+              ...lineSets
+            ]
+          : lineSets;
 
         chart = new Chart($("symptomChart"), {
           type: "line",
@@ -2007,7 +2028,15 @@
             maintainAspectRatio: false,
             interaction: { mode: "index", intersect: false },
             scales: {
-              y: { min: 0, max: 10, ticks: { stepSize: 1 } }
+              y: { min: 0, max: 10, ticks: { stepSize: 1 } },
+              y1: {
+                position: "right",
+                min: 0,
+                max: 24,
+                grid: { drawOnChartArea: false },
+                ticks: { stepSize: 6 },
+                display: hasSleepData
+              }
             }
           }
         });

@@ -623,6 +623,26 @@
     .severity-2 { background: color-mix(in srgb, var(--panel) 82%, #ffd29f); }
     .severity-3 { background: color-mix(in srgb, var(--panel) 78%, #ffb0a8); }
 
+    .extra-pain-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .extra-pain-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) 110px 88px;
+      gap: 8px;
+      align-items: end;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+    }
+
+    .extra-pain-row .btn {
+      width: 100%;
+    }
+
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .hidden { display: none !important; }
 
@@ -697,6 +717,10 @@
 
       .calendar-day-meta {
         font-size: 0.72rem;
+      }
+
+      .extra-pain-row {
+        grid-template-columns: 1fr;
       }
 
       .inline .btn {
@@ -847,6 +871,13 @@
       <div class="card">
         <h3 class="section-title">症状スコア (0-10)</h3>
         <div id="symptomContainer" class="grid2"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">追加の痛い部位（任意）</h3>
+        <p class="subtle">肩・首・喉・腰以外に痛い場所がある日は、部位名とスコアを追加できます。</p>
+        <div id="extraPainContainer" class="extra-pain-list" style="margin-top:8px;"></div>
+        <button id="btnAddExtraPain" class="btn" type="button" style="margin-top:8px;">部位を追加</button>
       </div>
 
       <div class="card">
@@ -1396,6 +1427,16 @@
         return new Date(`${record.date}T${t}:00`);
       }
 
+      function normalizeExtraPainAreas(items = []) {
+        if (!Array.isArray(items)) return [];
+        return items.map(item => {
+          const name = typeof item?.name === "string" ? item.name.trim().slice(0, 20) : "";
+          const scoreNum = Number(item?.score);
+          const score = Number.isFinite(scoreNum) ? clamp(Math.round(scoreNum), 0, 10) : 0;
+          return name ? { name, score } : null;
+        }).filter(Boolean);
+      }
+
       function normalizeRecord(r = {}) {
         const triggersDefault = Object.fromEntries(TRIGGER_KEYS.map(k => [k, false]));
         const interventionsDefault = Object.fromEntries(INTERVENTION_KEYS.map(k => [k, false]));
@@ -1411,6 +1452,7 @@
           stress: parseNullableInt(r.stress, 0, 10),
           workHours: parseNullableFloat(r.workHours, 0, 24),
           note: typeof r.note === "string" ? r.note.slice(0, 200) : "",
+          extraPainAreas: normalizeExtraPainAreas(r.extraPainAreas),
           triggers: { ...triggersDefault, ...(r.triggers || {}) },
           interventions: { ...interventionsDefault, ...(r.interventions || {}) },
           interventionNote: typeof r.interventionNote === "string" ? r.interventionNote.slice(0, 200) : ""
@@ -1470,6 +1512,40 @@
             $(`score-${key}`).textContent = el.value;
           });
         });
+      }
+
+      function renderExtraPainRows(items = []) {
+        const wrap = $("extraPainContainer");
+        if (!wrap) return;
+
+        wrap.innerHTML = items.map(item => `
+          <div class="extra-pain-row">
+            <div class="field">
+              <label>部位名</label>
+              <input type="text" class="extra-pain-name" maxlength="20" placeholder="例: ひざ" value="${item.name || ""}" />
+            </div>
+            <div class="field">
+              <label>スコア</label>
+              <input type="number" class="extra-pain-score" min="0" max="10" step="1" value="${item.score ?? 0}" />
+            </div>
+            <button type="button" class="btn danger extra-pain-remove">削除</button>
+          </div>
+        `).join("");
+
+        wrap.querySelectorAll(".extra-pain-remove").forEach(btn => {
+          btn.addEventListener("click", () => {
+            btn.closest(".extra-pain-row")?.remove();
+          });
+        });
+      }
+
+      function collectExtraPainAreas() {
+        return normalizeExtraPainAreas(
+          [...document.querySelectorAll(".extra-pain-row")].map(row => ({
+            name: row.querySelector(".extra-pain-name")?.value || "",
+            score: row.querySelector(".extra-pain-score")?.value || 0
+          }))
+        );
       }
 
       function renderToggleGroups() {
@@ -1548,6 +1624,11 @@
         $("btnUpdate").addEventListener("click", onUpdateRecord);
         $("btnCancelEdit").addEventListener("click", () => clearRecordForm(true));
         $("btnDelete").addEventListener("click", onDeleteRecord);
+        $("btnAddExtraPain").addEventListener("click", () => {
+          const items = collectExtraPainAreas();
+          items.push({ name: "", score: 0 });
+          renderExtraPainRows(items);
+        });
 
         $("listPeriod").addEventListener("change", () => {
           toggleCustomRange("listPeriod", "listCustomRange");
@@ -1667,6 +1748,7 @@
           neck: Number($("sym-neck").value),
           throat: Number($("sym-throat").value),
           lowerBack: Number($("sym-lowerBack").value),
+          extraPainAreas: collectExtraPainAreas(),
           sleepHours: parseNullableFloat($("sleepHours").value, 0, 24),
           stress: parseNullableInt($("stress").value, 0, 10),
           workHours: parseNullableFloat($("workHours").value, 0, 24),
@@ -1691,6 +1773,7 @@
         $("workHours").value = "";
         $("note").value = "";
         $("interventionNote").value = "";
+        renderExtraPainRows([]);
 
         applyToggle("triggers", TRIGGER_KEYS, {});
         applyToggle("interventions", INTERVENTION_KEYS, {});
@@ -1717,6 +1800,7 @@
         $("workHours").value = record.workHours ?? "";
         $("note").value = record.note || "";
         $("interventionNote").value = record.interventionNote || "";
+        renderExtraPainRows(record.extraPainAreas || []);
 
         applyToggle("triggers", TRIGGER_KEYS, record.triggers || {});
         applyToggle("interventions", INTERVENTION_KEYS, record.interventions || {});
@@ -1833,6 +1917,7 @@
               <span class="chip">首 ${r.neck}</span>
               <span class="chip">喉 ${r.throat}</span>
               <span class="chip">腰 ${r.lowerBack}</span>
+              ${(r.extraPainAreas || []).map(item => `<span class="chip">${item.name} ${item.score}</span>`).join("")}
             </div>
             <div class="subtle">${truncate(r.note, 60)}</div>
           </button>
@@ -1862,7 +1947,8 @@
 
       function maxSymptomScore(record) {
         if (!record) return null;
-        return Math.max(record.shoulder, record.neck, record.throat, record.lowerBack);
+        const extraScores = (record.extraPainAreas || []).map(item => item.score).filter(v => Number.isFinite(v));
+        return Math.max(record.shoulder, record.neck, record.throat, record.lowerBack, ...extraScores);
       }
 
       function renderCalendar() {
@@ -2670,6 +2756,7 @@
         const headers = [
           "id", "date", "time",
           "shoulder", "neck", "throat", "lowerBack",
+          "extraPainAreas",
           "sleepHours", "stress", "workHours", "note",
           ...TRIGGER_KEYS.map(k => `trigger_${k}`),
           ...INTERVENTION_KEYS.map(k => `intervention_${k}`),
@@ -2679,6 +2766,7 @@
         const rows = records.map(r => [
           r.id, r.date, r.time,
           r.shoulder, r.neck, r.throat, r.lowerBack,
+          JSON.stringify(r.extraPainAreas || []),
           r.sleepHours ?? "", r.stress ?? "", r.workHours ?? "", r.note || "",
           ...TRIGGER_KEYS.map(k => (r.triggers[k] ? 1 : 0)),
           ...INTERVENTION_KEYS.map(k => (r.interventions[k] ? 1 : 0)),

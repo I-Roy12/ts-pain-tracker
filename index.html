@@ -1562,6 +1562,7 @@
 
         wrap.querySelectorAll(".extra-pain-remove").forEach(btn => {
           btn.addEventListener("click", () => {
+            if (!confirm("本当に削除しますか？")) return;
             btn.closest(".extra-pain-row")?.remove();
           });
         });

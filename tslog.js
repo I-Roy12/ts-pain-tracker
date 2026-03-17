@@ -429,7 +429,7 @@
     const userLabel = byId("tslogUserLabel");
     if (userLabel) userLabel.textContent = `user_id: ${getUserId()}`;
     const totalLabel = byId("tslogTotalCount");
-    if (totalLabel) totalLabel.textContent = `TSLog記録: ${logs.length}件`;
+    if (totalLabel) totalLabel.textContent = `Log記録: ${logs.length}件`;
 
     setRangeValue("tslogPli", "tslogPliValue", today?.entry?.inputs?.pli ?? 0);
     setRangeValue("tslogCgi", "tslogCgiValue", today?.entry?.inputs?.cgi ?? 0);

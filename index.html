@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TS Pain Tracker</title>
+  <title>Pain Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
@@ -733,11 +733,11 @@
   <div class="app">
     <header class="header">
       <div class="title-row">
-        <h1>TS Pain Tracker</h1>
+        <h1>Pain Tracker</h1>
         <div id="clock" class="clock"></div>
       </div>
       <nav class="tabs">
-        <button class="tab-btn active" data-tab="tslog">TSLog v0.1</button>
+        <button class="tab-btn active" data-tab="tslog">Log v0.1</button>
         <button class="tab-btn" data-tab="input">入力</button>
         <button class="tab-btn" data-tab="list">一覧</button>
         <button class="tab-btn" data-tab="analysis">グラフ/分析</button>
@@ -749,11 +749,11 @@
 
     <section id="tab-tslog" class="panel active">
       <div class="card">
-        <h2 class="section-title">Project TS Pain Tracker（TSLog v0.1）</h2>
+        <h2 class="section-title">Project Pain Tracker（Log v0.1）</h2>
         <p class="subtle">Painモード（30秒入力）: PLI / CGI / TPI とメモを1日1件で保存します。</p>
         <p class="subtle" id="tslogTodayLabel">今日: -</p>
         <p class="subtle mono" id="tslogUserLabel">user_id: -</p>
-        <p class="subtle" id="tslogTotalCount">TSLog記録: 0件</p>
+        <p class="subtle" id="tslogTotalCount">Log記録: 0件</p>
         <details class="tslog-help">
           <summary>PLI / CGI / TPI の説明（開く）</summary>
           <div class="tslog-help-body">
@@ -2409,7 +2409,7 @@
 
         if ($("totalRecordCount")) $("totalRecordCount").textContent = `総記録 ${records.length}件`;
         if ($("chartTotalCount")) $("chartTotalCount").textContent = `総記録 ${records.length}件`;
-        if ($("tslogTotalCount")) $("tslogTotalCount").textContent = `TSLog記録: ${tslogCount}件`;
+        if ($("tslogTotalCount")) $("tslogTotalCount").textContent = `Log記録: ${tslogCount}件`;
       }
 
       function highestAvgSymptom(data) {

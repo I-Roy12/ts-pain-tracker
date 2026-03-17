@@ -994,6 +994,12 @@
       </div>
 
       <div class="card">
+        <h3 class="section-title">回復までの日数</h3>
+        <p class="subtle">症状が6以上の日から、3以下まで下がるまでの日数を目安表示します。</p>
+        <div id="recoveryAnalysis" class="stats-grid"></div>
+      </div>
+
+      <div class="card">
         <h3 class="section-title">トリガーあり/なし平均比較</h3>
         <div class="grid2">
           <div class="field">
@@ -1954,6 +1960,7 @@
         analysisDataset = data;
         renderChart(data, range);
         renderAnalysisCards(data);
+        renderRecoveryAnalysis(data);
         renderTriggerComparison(data);
         renderLifeFactorAnalysis(data);
         renderTriggerRanking(data);
@@ -2065,6 +2072,89 @@
           const n = truncate(x.record.note || "", 24);
           return `${i + 1}. ${x.record.date} ${x.record.time} ${SYMPTOM_LABEL[x.key]} ${x.value} ${n ? `| ${n}` : ""}`;
         }).join("<br>");
+      }
+
+      function diffDays(fromDate, toDate) {
+        const start = new Date(`${fromDate}T00:00:00`);
+        const end = new Date(`${toDate}T00:00:00`);
+        return Math.round((end - start) / 86400000);
+      }
+
+      function computeRecoveryStats(data, symptomKey) {
+        const sorted = sortByOldest(data);
+        const episodes = [];
+        let activeStart = null;
+
+        sorted.forEach(record => {
+          const score = record[symptomKey];
+          if (activeStart == null && score >= 6) {
+            activeStart = record;
+            return;
+          }
+
+          if (activeStart && score <= 3) {
+            episodes.push({
+              start: activeStart.date,
+              end: record.date,
+              days: diffDays(activeStart.date, record.date)
+            });
+            activeStart = null;
+          }
+        });
+
+        const days = episodes.map(ep => ep.days);
+        const lastRecord = sorted[sorted.length - 1] || null;
+
+        return {
+          episodes,
+          avg: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null,
+          min: days.length ? Math.min(...days) : null,
+          max: days.length ? Math.max(...days) : null,
+          activeStart: activeStart ? activeStart.date : null,
+          activeDays: activeStart && lastRecord ? diffDays(activeStart.date, lastRecord.date) : null
+        };
+      }
+
+      function renderRecoveryAnalysis(data) {
+        const box = $("recoveryAnalysis");
+        if (!box) return;
+
+        if (!data.length) {
+          box.innerHTML = `<div class="muted">回復日数を出せるデータがありません。</div>`;
+          return;
+        }
+
+        const symptomKey = highestAvgSymptom(data);
+        const recovery = computeRecoveryStats(data, symptomKey);
+        const latestDone = recovery.episodes[recovery.episodes.length - 1] || null;
+
+        box.innerHTML = `
+          <div class="stat-card">
+            <strong>対象症状</strong><br>
+            ${SYMPTOM_LABEL[symptomKey]}<br>
+            <span class="summary-note">期間内で最も負担が大きい症状</span>
+          </div>
+          <div class="stat-card">
+            <strong>回復済み平均</strong><br>
+            ${recovery.avg == null ? "-" : `${formatNum(recovery.avg)}日`}<br>
+            <span class="summary-note">最短 ${recovery.min == null ? "-" : `${recovery.min}日`} / 最長 ${recovery.max == null ? "-" : `${recovery.max}日`}</span>
+          </div>
+          <div class="stat-card">
+            <strong>直近の状態</strong><br>
+            ${recovery.activeStart
+              ? `継続中 ${recovery.activeDays}日`
+              : latestDone
+                ? `${latestDone.days}日で回復`
+                : "回復観測なし"}<br>
+            <span class="summary-note">${
+              recovery.activeStart
+                ? `${recovery.activeStart} から継続`
+                : latestDone
+                  ? `${latestDone.start} → ${latestDone.end}`
+                  : "高症状→回復の往復がまだ不足"
+            }</span>
+          </div>
+        `;
       }
 
       function renderTriggerComparison(data) {
